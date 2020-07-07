@@ -3,7 +3,7 @@ pipeline for **PRE**processing and **E**xtraction of the **MAC**aque brain **S**
 
 **PREEMACS** is a set of tools taken from several image processing softwares commonly used for human data analysis, customized for Rhesus monkeys brain surface extraction and cortical thickness analysis.
 
-![PREEMACS FSNHP average](D:\CT_analisis\CT_mean.jpg)
+(D:\CT_analisis\CT_mean.jpg)
 
 
 
