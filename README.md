@@ -3,13 +3,13 @@ pipeline for PREprocessing and Extraction of the MACaque brain Surface
 
 **PREEMACS** is a set of tools taken from several image processing softwares commonly used for human data analysis, customized for Rhesus monkeys brain surface extraction and cortical thickness analysis.
 
-Module 1 
+**Module 1** 
 Volume orientation, image cropping, intensity non-uniformity correction, and volume averaging, ending with skull-stripping through a convolutional neural network.
 
-Module 2 
+**Module 2** 
 Quality control using an adaptation of MRIqc method to extract objective quality metrics that are then used to determine the likelihood of accurate brain surface estimation. 
 
-Module 3 
+**Module 3** 
 This estimates the white matter and pial surfaces from the T1-weighted volume (T1w) using an NHP customized version of FreeSurfer v6.
 In order to customized FreeSurfer to NHP based on 33 subjects from (29) PRIME-DE (Milham et al., 2018) and (4) UNAM-INB data sets, PREEMACS has developed.
 
