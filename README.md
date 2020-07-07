@@ -9,7 +9,7 @@ pipeline for **PRE**processing and **E**xtraction of the **MAC**aque brain **S**
 **Module 1** 
 Volume orientation, image cropping, intensity non-uniformity correction, and volume averaging, ending with skull-stripping through a convolutional neural network.
 
-![Alt text](https://github.com/pGarciaS/PREEMACS/blob/master/examples/violin_mask_analisis_blue.jpg?raw=true)
+![Alt text](https://github.com/pGarciaS/PREEMACS/blob/master/examples/NHP_brainmask.png?raw=true)
 
 **Module 2** 
 Quality control using an adaptation of MRIqc method to extract objective quality metrics that are then used to determine the likelihood of accurate brain surface estimation. 
