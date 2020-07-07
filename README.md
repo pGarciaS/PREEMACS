@@ -7,7 +7,7 @@ pipeline for **PRE**processing and **E**xtraction of the **MAC**aque brain **S**
 
 ## **Module 1** 
 
-Perform volume orientation, image cropping, intensity non-uniformity correction, and volume averaging, ending with skull-stripping through a convolutional neural network.
+Performs volume orientation, image cropping, intensity non-uniformity correction, and volume averaging, ending with skull-stripping through a convolutional neural network.
 
 ![Alt text](https://github.com/pGarciaS/PREEMACS/blob/master/examples/NHP_brainmask.png?raw=true)
 
