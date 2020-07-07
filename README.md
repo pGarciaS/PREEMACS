@@ -1,6 +1,7 @@
-# **PREEMACS** pipeline for PREprocessing and Extraction of the MACaque brain Surface
+# **PREEMACS**  
+pipeline for PREprocessing and Extraction of the MACaque brain Surface
 
-PREEMACS, a pipeline that standardizes the preprocessing of structural MRI images (T1- and T2-weighted) and carries out an automatic surface extraction of the macaque brain.
+**PREEMACS** is a set of tools taken from several image processing softwares commonly used for human data analysis, customized for Rhesus monkeys brain surface extraction and cortical thickness analysis.
 
 Module 1 
 Volume orientation, image cropping, intensity non-uniformity correction, and volume averaging, ending with skull-stripping through a convolutional neural network.
