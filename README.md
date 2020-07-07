@@ -29,7 +29,7 @@ In order to customized FreeSurfer to NHP, PREEMACS  based on 33 subjects from (2
 
 ![Alt text](https://github.com/pGarciaS/PREEMACS/blob/master/examples/NHP_FREESURFER_ATLAS.png?raw=true)
 
-2) **PREEMACS Rhesus parameterization template ** that includes the Rhesus curvature and sulcal pattern templates for individual monkey WM surface registration
+2) **PREEMACS Rhesus parameterization template** that includes the Rhesus curvature and sulcal pattern templates for individual monkey WM surface registration
 
 ![Alt text](https://github.com/pGarciaS/PREEMACS/blob/master/examples/NHP_FREESURFER_TEMPLATE.PNG?raw=true)
 
