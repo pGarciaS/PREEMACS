@@ -23,7 +23,7 @@ This module estimates the white matter and pial surfaces from the T1-weighted vo
 
 ## PREEMACS NHP TEMPLATES
 
-In order to customized FreeSurfer to NHP, PREEMACS  based on 33 subjects from (29) PRIME-DE (Milham et al., 2018) and (4) UNAM-INB data sets has developed.
+In order to customized FreeSurfer to NHP, PREEMACS based on 33 subjects from (29) PRIME-DE (Milham et al., 2018) and (4) UNAM-INB data sets, has developed.
 
 1) **PREEMACS FreeSurfer segmentation atlas**, with cortical and subcortical labels
 
