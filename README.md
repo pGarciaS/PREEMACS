@@ -7,7 +7,7 @@ pipeline for **PRE**processing and **E**xtraction of the **MAC**aque brain **S**
 
 ## **Module 1** 
 
-Performs volume orientation, image cropping, intensity non-uniformity correction, and volume averaging, ending with skull-stripping through a convolutional neural network.
+Performs volume orientation, image cropping, intensity non-uniformity correction, and volume averaging, ending with skull-stripping **(PREEMASK brainmask tool)** through a convolutional neural network.
 
 ![Alt text](https://github.com/pGarciaS/PREEMACS/blob/master/examples/NHP_brainmask.png?raw=true)
 
@@ -37,3 +37,6 @@ In order to customized FreeSurfer to NHP, PREEMACS  based on 33 subjects from (2
 
 ![Alt text](https://github.com/pGarciaS/PREEMACS/blob/master/examples/CT_final_analisis._inferno.jpg?raw=true)
 
+# **COMING SOON**  
+- Quick Install
+- Singularity Container
