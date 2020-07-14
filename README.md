@@ -13,7 +13,7 @@ Performs volume orientation, image cropping, intensity non-uniformity correction
 
 ## **Module 2** 
 
-Quality control using an adaptation of MRIqc method to extract objective quality metrics that are then used to determine the likelihood of accurate brain surface estimation. 
+Performs a quality control using an adaptation of MRIqc method to extract quality metrics that are then used to determine the likelihood of accurate brain surface estimation. 
 
 ## **Module 3** 
 
