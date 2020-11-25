@@ -154,6 +154,8 @@ mkdir $PREEMACS_DIR/$SUB_ID/N4_T2
 mkdir $PREEMACS_DIR/$SUB_ID/orig
 mkdir $PREEMACS_DIR/$SUB_ID/scripts
 mkdir $PREEMACS_DIR/$SUB_ID/reorient
+mkdir $PREEMACS_DIR/$SUB_ID/mask
+mkdir $PREEMACS_DIR/$SUB_ID/HCP
 fi
 
 mkdir $PREEMACS_DIR/$SUB_ID/tmp
