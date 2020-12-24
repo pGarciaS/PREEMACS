@@ -43,7 +43,7 @@ ants_path=/home/inb/lconcha/fmrilab_software/antsbin/bin
 #inb_anaconda_on
 #conda activate bskull
 
-	Mdeepbrain-extractor -i $path_job/T1_preproc.nii.gz -o $path_job/
+	Mdeepbrain-extractor -i $path_job/T1_conform.nii.gz -o $path_job/
 	${MRTRIX_DIR}/mrconvert $path_job/brain_mask.nii  $path_job/mask/brain_mask_orig.nii.gz
 	rm $path_job/brain_mask.nii
 	rm $path_job/brain.nii
