@@ -53,7 +53,7 @@ ants_path=/home/inb/lconcha/fmrilab_software/antsbin/bin
 	${FSLDIR}/fslmaths $path_job/mask/NMT_to_mask_Warped.nii.gz -bin $path_job/mask/NMT_to_mask_Warped_mask.nii.gz
 	${FSLDIR}/fslmaths $path_job/mask/NMT_to_mask_Warped_mask.nii.gz -dilM $path_job/mask/NMT_to_mask_Warped_mask.nii.gz
 	${FSLDIR}/fslmaths $path_job/mask/NMT_to_mask_Warped_mask.nii.gz -mul $path_job/T1_brain.nii.gz $path_job/T1_brain.nii.gz
-	${FSLDIR}/fslmaths $path_job/T1_brain.nii.gz -bin $path_job/brain_mask.nii.gz
-	${FSLDIR}/fslmaths $path_job/brain_mask.nii.gz -mul $path_job/T2_preproc.nii.gz $path_job/T2_brain.nii.gz
+	%${FSLDIR}/fslmaths $path_job/T1_brain.nii.gz -bin $path_job/brain_mask.nii.gz
+	%${FSLDIR}/fslmaths $path_job/brain_mask.nii.gz -mul $path_job/T2_preproc.nii.gz $path_job/T2_brain.nii.gz
 	cp $path_job/T2_preproc.nii.gz $path_job/T2.nii.gz
 	cp $path_job/T1_preproc.nii.gz $path_job/T1.nii.gz
