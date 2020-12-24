@@ -47,7 +47,7 @@ ants_path=/home/inb/lconcha/fmrilab_software/antsbin/bin
 	${MRTRIX_DIR}/mrconvert $path_job/brain_mask.nii  $path_job/mask/brain_mask_orig.nii.gz
 	rm $path_job/brain_mask.nii
 	rm $path_job/brain.nii
-	${FSLDIR}/fslmaths $path_job/mask/brain_mask_orig.nii.gz -mul $path_job/T1_preproc.nii.gz $path_job/T1_brain.nii.gz
+	${FSLDIR}/fslmaths $path_job/mask/brain_mask_orig.nii.gz -mul $path_job/T1_conform.nii.gz $path_job/T1_brain.nii.gz
 
 	$ants_path/antsRegistrationSyN.sh -d 3 -f $path_job/T1_brain.nii.gz -m $templates_path/NMT_brain_05.nii.gz -t a -o $path_job/mask/NMT_to_mask_
 	${FSLDIR}/fslmaths $path_job/mask/NMT_to_mask_Warped.nii.gz -bin $path_job/mask/NMT_to_mask_Warped_mask.nii.gz
