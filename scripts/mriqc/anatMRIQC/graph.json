@@ -1,0 +1,283 @@
+[
+    {
+        "group": 1,
+        "imports": [],
+        "name": "00_metadata",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [],
+        "name": "01_conform",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform"
+        ],
+        "name": "02_PlotMosaicNoise",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform"
+        ],
+        "name": "03_RotationMask",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [],
+        "name": "04_asw",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform",
+            "04_asw"
+        ],
+        "name": "05_PlotBrainmask",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform",
+            "04_asw"
+        ],
+        "name": "06_PlotMosaicZoomed",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform",
+            "04_asw"
+        ],
+        "name": "07_smoothness",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "04_asw"
+        ],
+        "name": "08_SpatialNormalization",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform",
+            "08_SpatialNormalization"
+        ],
+        "name": "09_MNItpms2t1",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "08_SpatialNormalization",
+            "04_asw"
+        ],
+        "name": "10_invert_xfm",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "04_asw"
+        ],
+        "name": "11_segmentation",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform",
+            "11_segmentation"
+        ],
+        "name": "12_PlotSegmentation",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "11_segmentation",
+            "04_asw"
+        ],
+        "name": "13_harmonize",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "11_segmentation",
+            "04_asw"
+        ],
+        "name": "14_EstimateSNR",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "04_asw"
+        ],
+        "name": "15_Enhance",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "14_EstimateSNR",
+            "15_Enhance"
+        ],
+        "name": "16_Denoise",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "14_EstimateSNR",
+            "16_Denoise"
+        ],
+        "name": "17_Grad",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "11_segmentation",
+            "17_Grad"
+        ],
+        "name": "18_GradientThreshold",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform",
+            "18_GradientThreshold"
+        ],
+        "name": "19_PlotHeadmask",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform",
+            "18_GradientThreshold",
+            "03_RotationMask",
+            "10_invert_xfm"
+        ],
+        "name": "20_ArtifactMask",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform",
+            "20_ArtifactMask"
+        ],
+        "name": "21_PlotArtmask",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform",
+            "20_ArtifactMask"
+        ],
+        "name": "22_PlotAirmask",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform",
+            "20_ArtifactMask"
+        ],
+        "name": "23_ComputeQI2",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "08_SpatialNormalization",
+            "23_ComputeQI2",
+            "06_PlotMosaicZoomed",
+            "02_PlotMosaicNoise",
+            "12_PlotSegmentation",
+            "05_PlotBrainmask",
+            "19_PlotHeadmask",
+            "22_PlotAirmask",
+            "21_PlotArtmask"
+        ],
+        "name": "24_MergePlots",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "01_conform",
+            "11_segmentation",
+            "18_GradientThreshold",
+            "03_RotationMask",
+            "20_ArtifactMask",
+            "13_harmonize",
+            "07_smoothness",
+            "09_MNItpms2t1",
+            "04_asw"
+        ],
+        "name": "25_measures",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "03_RotationMask",
+            "20_ArtifactMask"
+        ],
+        "name": "26_provenance",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "00_metadata",
+            "26_provenance",
+            "23_ComputeQI2",
+            "25_measures"
+        ],
+        "name": "27_datasink",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "27_datasink",
+            "24_MergePlots"
+        ],
+        "name": "28_GenerateReport",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "28_GenerateReport"
+        ],
+        "name": "29_dsplots",
+        "size": 1
+    },
+    {
+        "group": 1,
+        "imports": [
+            "27_datasink"
+        ],
+        "name": "30_UploadMetrics",
+        "size": 1
+    }
+]

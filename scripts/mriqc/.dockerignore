@@ -1,0 +1,52 @@
+# python cache
+.cache/
+__pycache__/**/*
+__pycache__
+*.pyc
+
+# python distribution
+build/**/*
+build
+dist/**/*
+dist
+mriqc.egg-info/**/*
+mriqc.egg-info
+.eggs/**/*
+.eggs
+src/**/*
+src/
+notebooks/
+
+# releasing
+Makefile
+
+# git
+.github/
+.gitignore
+.gitattributes
+.git/**/*
+.git
+
+# other
+docs/**/*
+docs
+notebooks/**/*
+notebooks
+.zenodo.json
+
+# CircleCI and Travis
+.circleci/
+.codecov.yml
+.coveragerc
+.pep8speaks.yml
+.pylintrc
+.readthedocs.yml
+.travis.yml
+codecov.yml
+CONTRIBUTING.md
+venv/
+venv/**/*
+
+# Maintenance
+update_changes.py
+get_version.py
