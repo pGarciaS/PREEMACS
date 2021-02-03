@@ -1,0 +1,11 @@
+#documentation
+recursive-include docs/build/html *
+
+#data
+recursive-include mriqc/data *
+
+#Misc
+include CHANGES.txt
+include LICENSE.txt
+include versioneer.py
+include mriqc/_version.py
