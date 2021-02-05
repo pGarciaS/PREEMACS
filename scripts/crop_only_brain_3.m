@@ -1,10 +1,10 @@
+%%%Crop the image using FOV and brain size
 function image_crop=crop_only_brain_3(path_job,nii,outname)
         %%% nii. after crop
         addpath([path_job]);
         nii_in=([path_job nii]);
         crop_out=([path_job outname]);
         nii=load_nifti(nii_in);
-
 
         voxel_size_x=nii.pixdim(2,1);
         voxel_size_y=nii.pixdim(3,1);
@@ -33,48 +33,47 @@ function image_crop=crop_only_brain_3(path_job,nii,outname)
 
 
         if  axis_x_end <= 0 || axis_x_start >= fov_size (1,1)
-        axis_y=[axis_y_end,axis_y_start];
-        axis_z=[axis_z_end,axis_z_start];
+                axis_y=[axis_y_end,axis_y_start];
+                axis_z=[axis_z_end,axis_z_start];
 
-        axis_y=num2str(axis_y);
-        axis_z=num2str(axis_z);
+                axis_y=num2str(axis_y);
+                axis_z=num2str(axis_z);
 
-        image_crop=['-axis 1 ', axis_y];
-        image_crop=[image_crop,' -axis 2 ',axis_z];
-        s=''''
-        eval([ 'dlmwrite(' s crop_out s ',image_crop,' s 'delimiter' s ',' s '' '' s ')' ])
+                image_crop=['-axis 1 ', axis_y];
+                image_crop=[image_crop,' -axis 2 ',axis_z];
+                s=''''
+                eval([ 'dlmwrite(' s crop_out s ',image_crop,' s 'delimiter' s ',' s '' '' s ')' ])
 
         end
 
         if axis_x_end > 0 && axis_x_start < fov_size (1,1)
 
-        axis_x=[axis_x_end,axis_x_start];
-        axis_y=[axis_y_end,axis_y_start];
-        axis_z=[axis_z_end,axis_z_start];
+                axis_x=[axis_x_end,axis_x_start];
+                axis_y=[axis_y_end,axis_y_start];
+                axis_z=[axis_z_end,axis_z_start];
 
+                axis_x=num2str(axis_x);
+                axis_y=num2str(axis_y);
+                axis_z=num2str(axis_z);
 
-        axis_x=num2str(axis_x);
-        axis_y=num2str(axis_y);
-        axis_z=num2str(axis_z);
-
-        image_crop=['-axis 0 ',axis_x ];
-        image_crop=[image_crop,' -axis 1 ', axis_y];
-        image_crop=[image_crop,' -axis 2 ',axis_z];
-        s=''''
-        eval([ 'dlmwrite(' s crop_out s ',image_crop,' s 'delimiter' s ',' s '' '' s ')' ])
+                image_crop=['-axis 0 ',axis_x ];
+                image_crop=[image_crop,' -axis 1 ', axis_y];
+                image_crop=[image_crop,' -axis 2 ',axis_z];
+                s=''''
+                eval([ 'dlmwrite(' s crop_out s ',image_crop,' s 'delimiter' s ',' s '' '' s ')' ])
         end
 
         if  axis_z_end <= 0 || axis_z_start >= fov_size (1,3)
-        axis_x=[axis_x_end,axis_x_start];
-        axis_y=[axis_y_end,axis_y_start];
+                axis_x=[axis_x_end,axis_x_start];
+                axis_y=[axis_y_end,axis_y_start];
 
-        axis_x=num2str(axis_x);
-        axis_y=num2str(axis_y);
+                axis_x=num2str(axis_x);
+                axis_y=num2str(axis_y);
 
-        image_crop=['-axis 0 ', axis_x];
-        image_crop=[image_crop,' -axis 1 ',axis_y];
-        s=''''
-        eval([ 'dlmwrite(' s crop_out s ',image_crop,' s 'delimiter' s ',' s '' '' s ')' ])
+                image_crop=['-axis 0 ', axis_x];
+                image_crop=[image_crop,' -axis 1 ',axis_y];
+                s=''''
+                eval([ 'dlmwrite(' s crop_out s ',image_crop,' s 'delimiter' s ',' s '' '' s ')' ])
         end
 
         if axis_x_end <= 0 || axis_x_start >= fov_size (1,1)
