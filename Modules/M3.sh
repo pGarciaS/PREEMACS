@@ -109,6 +109,8 @@ echo " "
 echo " END: BiasFieldCorrection"
 echo " END: `date`" >> $path_job/HCP/log.txt
 
+##BIAS PROCESS. Glasser, M. F., et al.,(2013). The minimal preprocessing pipelines for the Human Connectome Project. Neuroimage, 80, 105-124.
+
 #---------------------------------------------------------- Truncate instensity of images
 
 $ants_path/ImageMath 3 $path_job/T1.nii.gz TruncateImageIntensity $path_job/T1.nii.gz
@@ -164,9 +166,6 @@ cd $DIR_bm/
 echo "addpath('$scripts_path');fake_space('$DIR_bm/','T1',[1;1;1;1;0;0;0;0],'_fake','MASK_ATLAS_TO_T1');exit()" > $DIR_bm/info.m
  $matlab_path -r -nodisplay -nojvm info
 rm $DIR_bm/info.m
-
-mv $DIRm/brainmask.auto.mgz $DIRm/brainmask_original.auto.mgz
-mv $DIRm/brainmask.mgz $DIRm/brainmask_original.mgz
 
 ${FSLDIR}/bin/fslmaths $DIR_bm/MASK_ATLAS_TO_T1_fake.nii.gz -mul $DIR_bm/T1.nii.gz $DIR_bm/brainmask_fix.nii.gz
 
