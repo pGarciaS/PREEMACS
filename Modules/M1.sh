@@ -7,16 +7,15 @@ Usage: `basename $0` -id -t1_path -t2_path -out_path [Options]
 	        t1_path:           T1_path on .nii.gz format
 	        t2_path:           T2_path on .nii.gz format
                out_path:          Output path
-               
+
 Module 1. Volume orientation, image crop, intensity non-uniformity (INU) correction,
           image averaging, resampling and conform.
-          
-OPTIONS
 
+OPTIONS
 -sphinx:                 Reorient to sphinx position
--mc:                     if the automatic crop fails (default) do manual crop. 
-                         Open fslview to id the coordinates (x y z) of 
-                         anterior and posterior commisures   
+-mc:                     if the automatic crop fails (default) do manual crop.
+                         Open fslview to id the coordinates (x y z) of
+                         anterior and posterior commisures
 -mcc:                    if the automatic crop fails add coordinates (x y z) of
                          anterior and posterior commisure. After perform all module 1
                          you can find the file in out_path/file_to_coords.txt. You must add
@@ -32,7 +31,7 @@ np.pam.garcia@gmail.com
 
 #  FUNCTION: PRINT INFO
 Info() {
-Col="38;5;129m" # Color code 
+Col="38;5;129m" # Color code
 echo  -e "\033[$Col\n[INFO]..... $1 \033[0m"
 }
 
@@ -47,7 +46,7 @@ if [ $# -lt 1 ]
  	exit 1
  fi
 #------------------------------------------------------------------------------#
-#                                 PATHS                                       
+#                                 PATHS
 
 PREEMACS_PATH=/misc/evarts2/PREEMACS
 FSLDIR=/home/inb/lconcha/fmrilab_software/fsl_5.0.6/
@@ -130,7 +129,7 @@ Note(){
 echo -e "\t\t$1\t\033[38;5;197m$2\033[0m"
 }
 arg=($SUB_ID $T1_image_path $T2_image_path $PREEMACS_DIR)
-if [ "${#arg[@]}" -lt 4 ]; then 
+if [ "${#arg[@]}" -lt 4 ]; then
 Note "-id "      "\t$SUB_ID"
 Note "-t1_path " "\t$T1_image_path"
 Note "-t2_path " "\t$T2_image_path"
@@ -358,7 +357,6 @@ $matlab_path -r -nodisplay -nojvm info
 rm $scripts/info.m
 cd ../
 					var=$(cat $TMP/$size)
-
 final_crop=${d/_CROP_REO_REG_InverseWarped.nii.gz/}_final_crop.nii.gz
 ${MRTRIX_DIR}/mrcrop $var $TMP/$nii_prefinal_crop $TMP/$final_crop
 cp $TMP/$final_crop $path_crop/.
@@ -449,7 +447,6 @@ Info "Average and Resampling"
 
 if [ $average_FS -eq 1 ]; then
 
-
 ## Average T1
 	cd $N4_T1_path
 	number_images=$(ls -l | wc -l)
@@ -524,40 +521,28 @@ if [[ $number_images == 2 ]];
 
 if [[ $number_images > 2 ]];
  then
-         ${FREESURFER_HOME}/mri_motion_correct.fsl -o $path_job/T2_preproc.nii.gz -wild *.nii.gz
+   ${FREESURFER_HOME}/mri_motion_correct.fsl -o $path_job/T2_preproc.nii.gz -wild *.nii.gz
 	 ${MRTRIX_DIR}/mrresize -voxel 0.5 $path_job/T2_preproc.nii.gz $path_job/T2_preproc.nii.gz -force
 	 rm $path_job/T2preproc.nii.gz.mri_motion_correct.fsl.log
   fi
 fi
-
-#--------------------------------------------------- T1_T2 reg ---------------------------------------------------------#
-
-Info "T2 registration T1"
-cd $path_job/
-
-$ants_path/antsRegistrationSyN.sh -d 3 -f $path_job/T1_preproc.nii.gz -m $path_job/T2_preproc.nii.gz -t r -o $path_job/T2_preproc_
-
-rm  $path_job/T2_preproc_0GenericAffine.mat
-rm  $path_job/T2_preproc_InverseWarped.nii.gz
-mv  $path_job/T2_preproc_Warped.nii.gz $path_job/T2_preproc.nii.gz
-
 
 #------------------------------------- Conform 256 to PREEMACS brainmask tool -------------------------------------------#
 
 Info "Conform"
 cd $path_job/
 
-	for file in *.nii.gz; do
-			nii_in=$file
+			nii_in=T1_preproc.nii.gz
+      nii_out=T1_conform.nii.gz
 
 cd $scripts
-echo "addpath('$scripts_path');data_conform=conform2('$path_job/','$nii_in','$path_job/','$nii_in');exit()" > $scripts/info.m
+echo "addpath('$scripts_path');data_conform=conform2('$path_job/','$nii_in','$path_job/','$nii_out');exit()" > $scripts/info.m
 $matlab_path -r -nodisplay -nojvm info
 rm $scripts/info.m
 
 ${FSLDIR}/bin/fslroi $path_job/$nii_in $path_job/$nii_in 0 1
 
-done
+rm $path_job/T1_preproc.nii.gz
 
 #------------------------------------------------------------------------------#
 # 			Removes Temoral Files
