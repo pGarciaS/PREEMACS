@@ -2,12 +2,7 @@
 print_help() {
 echo "
 Usage:
-
-
 	`basename $0` SUB_ID out_path
-
-
-
 Pam Garcia
 INB June,2020
 np.pam.garcia@gmail.com
@@ -39,8 +34,54 @@ MRTRIX_DIR=/home/inb/lconcha/fmrilab_software/mrtrix3.git/bin
 templates_path=$PREEMACS_PATH/templates
 ants_path=/home/inb/lconcha/fmrilab_software/antsbin/bin
 minc_path=$PREEMACS_PATH/programs
-# #------------------------------------------------------------------------- BIAS HCP --------------------------------------------------------------
-image=$path_job/T1.nii.gz 
+
+# # -------------------------------------------------------------- -Check Dice value of PREEMACS braintool mask
+
+	# if [[ $Dice_val =< 0.95 ]]; then
+	# $ants_path/antsRegistrationSyN.sh -d 3 -f $path_job/T1_brain.nii.gz -m $templates_path/NMT_brain_05.nii.gz -t a -o $path_job/mask/NMT_to_mask_
+	# ${FSLDIR}/fslmaths $path_job/mask/NMT_to_mask_Warped.nii.gz -bin $path_job/mask/NMT_to_mask_Warped_mask.nii.gz
+	# ${FSLDIR}/fslmaths $path_job/mask/NMT_to_mask_Warped_mask.nii.gz -dilM $path_job/mask/NMT_to_mask_Warped_mask.nii.gz
+	# ${FSLDIR}/fslmaths $path_job/mask/NMT_to_mask_Warped_mask.nii.gz -mul $path_job/T1_brain.nii.gz $path_job/T1_brain.nii.gz
+	# ${FSLDIR}/fslmaths $path_job/T1_brain.nii.gz -bin $path_job/brain_mask.nii.gz
+    #fi
+
+## --------------------------------------------------------------- Conform crop images and brainmask ----------------------------------#
+#### Crop the images to perform BHCP. The images to perform mriqc are in 256. BHCP is better with the images crop
+
+cd $scripts
+echo "addpath('$scripts_path');NewMat=preemacs_autocrop('$path_job/','T1_conform.nii.gz','T1_preproc.nii.gz');exit()" > $scripts/info.m
+$matlab_path -r -nodisplay -nojvm info
+rm $scripts/info.m
+cd ../
+
+$ants_path/antsRegistrationSyN.sh -d 3 -f $path_job/T1_preproc.nii.gz -m $path_job/T1_brain.nii.gz -t r -o $path_job/T1_brain_crop_
+	rm  $path_job/T1_brain_crop_0GenericAffine.mat
+	rm  $path_job/T1_brain_crop_InverseWarped.nii.gz
+mv  $path_job/brain_mask.nii.gz $path_job/mask/brain_mask_image_256.nii.gz
+
+${FSLDIR}/bin/fslmaths $path_job/T1_brain_crop_Warped.nii.gz -bin $path_job/brain_mask.nii.gz
+${FSLDIR}/bin/fslmaths $path_job/brain_mask.nii.gz kernel box 1x1x1 -fmean $path_job/brain_mask.nii.gz
+${FSLDIR}/bin/fslmaths $path_job/brain_mask.nii.gz -mul $path_job/T1_preproc.nii.gz $path_job/T1_brain.nii.gz
+
+##---------------------------------------------------------------- T1_T2 reg -----------------------------------------------------#
+
+Info "T2 registration T1"
+cd $path_job/
+
+$ants_path/antsRegistrationSyN.sh -d 3 -f $path_job/T1_preproc.nii.gz -m $path_job/T2_preproc.nii.gz -t r -o $path_job/T2_preproc_
+rm  $path_job/T2_preproc_0GenericAffine.mat
+rm  $path_job/T2_preproc_InverseWarped.nii.gz
+mv  $path_job/T2_preproc_Warped.nii.gz $path_job/T2_preproc.nii.gz
+
+${FSLDIR}/bin/fslmaths $path_job/brain_mask.nii.gz -mul $path_job/T2_preproc.nii.gz $path_job/T2_brain.nii.gz
+		  #---------------------------------------------------------------------------------------#
+cp $path_job/T2_preproc.nii.gz $path_job/T2.nii.gz
+cp $path_job/T1_preproc.nii.gz $path_job/T1.nii.gz
+
+rm $path_job/T1_brain_crop_Warped.nii.gz
+
+# #--------------------------------------------------------------- BIAS HCP --------------------------------------------------------------
+image=$path_job/T1.nii.gz
 
 ## default parameters HCP
 
@@ -96,8 +137,8 @@ ${FSLDIR}/bin/fslmaths $path_job/T2.nii.gz -div $path_job/HCP/BiasField.nii.gz $
 
 ## Copy images without bet to use init FS
 
-cp  $path_job/HCP/T1_RestoredImage.nii.gz                $path_job/T1.nii.gz
-cp  $path_job/HCP/T2_RestoredImage.nii.gz                $path_job/T2.nii.gz
+cp  $path_job/HCP/T1_RestoredImage.nii.gz   $path_job/T1.nii.gz
+cp  $path_job/HCP/T2_RestoredImage.nii.gz   $path_job/T2.nii.gz
 
 mkdir $path_job/before_HCP
 mv $path_job/T1_preproc.nii.gz $path_job/before_HCP/T1_before_HCP.nii.gz
@@ -108,8 +149,6 @@ mv $path_job/T2_brain.nii.gz $path_job/before_HCP/T2_brain_before_HCP.nii.gz
 echo " "
 echo " END: BiasFieldCorrection"
 echo " END: `date`" >> $path_job/HCP/log.txt
-
-##BIAS PROCESS. Glasser, M. F., et al.,(2013). The minimal preprocessing pipelines for the Human Connectome Project. Neuroimage, 80, 105-124.
 
 #---------------------------------------------------------- Truncate instensity of images
 
@@ -135,8 +174,6 @@ ${FREESURFER_HOME}/bin/recon-all -i $path_job/T1_fake.nii.gz -s $SUB_ID -T2 $pat
 
 # #-------------------------------------------------------- Mask process based on PREEMACS mask
 echo -e "\033[48;5;125m \n [INIT]... CORRECT BRAIN MASK: EDIT MASK TO FS \n\033[0m";
-
-#--------------------------- Iterate over every subject1 -----------------------#
 
 DIR=$SUBJECTS_DIR/$SUB_ID
 DIRm=$SUBJECTS_DIR/$SUB_ID/mri
@@ -166,6 +203,9 @@ cd $DIR_bm/
 echo "addpath('$scripts_path');fake_space('$DIR_bm/','T1',[1;1;1;1;0;0;0;0],'_fake','MASK_ATLAS_TO_T1');exit()" > $DIR_bm/info.m
  $matlab_path -r -nodisplay -nojvm info
 rm $DIR_bm/info.m
+
+#mv $DIRm/brainmask.auto.mgz $DIRm/brainmask_original.auto.mgz
+#mv $DIRm/brainmask.mgz $DIRm/brainmask_original.mgz
 
 ${FSLDIR}/bin/fslmaths $DIR_bm/MASK_ATLAS_TO_T1_fake.nii.gz -mul $DIR_bm/T1.nii.gz $DIR_bm/brainmask_fix.nii.gz
 
@@ -332,7 +372,7 @@ cd $DIRm
 cp $DIRm/brain.mgz $DIRm/brain_orig_after_MACS.mgz
 cp $DIRm/norm.mgz $DIRm/brain.mgz
 
-${FREESURFER_HOME}/bin/mri_segment -mprage -wlo 105 -ghi 100 $DIR/mri/brain.mgz  $HICPO/wm.seg_MOD.mgz 
+${FREESURFER_HOME}/bin/mri_segment -mprage -wlo 105 -ghi 100 $DIR/mri/brain.mgz  $HICPO/wm.seg_MOD.mgz
 
 ${FREESURFER_HOME}/bin/mri_convert $DIR/mri/T1.mgz $HICPO/T1.nii.gz
 ${FREESURFER_HOME}/bin/mri_convert $DIR/mri/wm.seg.mgz $HICPO/wm.seg.nii.gz
@@ -349,13 +389,13 @@ ${FSLDIR}/bin/flirt -ref $DIR_bm/brain_no_fake.nii.gz  -in $HICPO/MASK_WM.SEG_FO
 
 
 ${FSLDIR}/bin/fslmaths $HICPO/wm.seg_MOD.nii.gz -binv $HICPO/wm.seg_MOD_binv.nii.gz
-${FSLDIR}/bin/fslmaths $HICPO/wm.seg_MOD_binv.nii.gz -mul $HICPO/wm.seg.nii.gz $HICPO/bump.nii.gz 
+${FSLDIR}/bin/fslmaths $HICPO/wm.seg_MOD_binv.nii.gz -mul $HICPO/wm.seg.nii.gz $HICPO/bump.nii.gz
 
 
-${FSLDIR}/bin/fslmaths $HICPO/bump.nii.gz -mul $HICPO/MASK_WM.SEG_FOR_CROP.nii.gz $HICPO/bump_error.nii.gz #error estimation 
+${FSLDIR}/bin/fslmaths $HICPO/bump.nii.gz -mul $HICPO/MASK_WM.SEG_FOR_CROP.nii.gz $HICPO/bump_error.nii.gz #error estimation
 
-${FSLDIR}/bin/fslmaths $HICPO/bump_error.nii.gz -sub 80 $HICPO/resta.nii.gz 
-${FSLDIR}/bin/fslmaths $HICPO/resta.nii.gz -bin $HICPO/resta_bin.nii.gz 
+${FSLDIR}/bin/fslmaths $HICPO/bump_error.nii.gz -sub 80 $HICPO/resta.nii.gz
+${FSLDIR}/bin/fslmaths $HICPO/resta.nii.gz -bin $HICPO/resta_bin.nii.gz
 ${FSLDIR}/bin/fslmaths $HICPO/resta_bin.nii.gz -mul $HICPO/resta.nii.gz $HICPO/low_values.nii.gz
 ${FSLDIR}/bin/fslmaths $HICPO/low_values.nii.gz -bin $HICPO/low_values_bin.nii.gz
 
@@ -364,7 +404,7 @@ ${FSLDIR}/bin/fslmaths $HICPO/low_values_bin.nii.gz -kernel box 3x3x3 -fmean $HI
 
 #----------------------------------------------------------Changes values
 
-${FSLDIR}/bin/fslmaths $HICPO/low_values_bin_smooth.nii.gz -mul -20 $HICPO/low_values_normalize.nii.gz 
+${FSLDIR}/bin/fslmaths $HICPO/low_values_bin_smooth.nii.gz -mul -20 $HICPO/low_values_normalize.nii.gz
 
 ${FSLDIR}/bin/fslmaths $HICPO/low_values_normalize.nii.gz -add $HICPO/brain.nii.gz $HICPO/brain_normalize_HI.nii.gz
 
@@ -372,7 +412,7 @@ cp $DIR/mri/brain.mgz $DIR/mri/brain_original.mgz
 ${FREESURFER_HOME}/bin/mri_convert $HICPO/brain_normalize_HI.nii.gz $DIR/mri/brain.mgz
 
 
-#----------------------------------------------------------FIX WM with brain normalize previosly fix norm 
+#----------------------------------------------------------FIX WM with brain normalize previosly fix norm
 mv $DIR/mri/brain.mgz $DIR/mri/norm.mgz
 ${FREESURFER_HOME}/bin/mri_normalize -mprage -aseg $DIRm/aseg.presurf_orig.mgz -mask $DIRm/brainmask.mgz $DIRm/norm.mgz $DIRm/brain.mgz
 
@@ -440,13 +480,13 @@ ${FREESURFER_HOME}/bin/mri_fill -a $DIR/scripts/ponscc.cut.log -xform $DIRm/tran
 
  ${FREESURFER_HOME}/bin/mris_smooth -nw -seed 1234 $DIR/surf/rh.orig.nofix $DIR/surf/rh.smoothwm.nofix
 
-#------------------------------------------------------Inflation1 
+#------------------------------------------------------Inflation1
 
  ${FREESURFER_HOME}/bin/mris_inflate -no-save-sulc $DIR/surf/lh.smoothwm.nofix $DIR/surf/lh.inflated.nofix
 
  ${FREESURFER_HOME}/bin/mris_inflate -no-save-sulc $DIR/surf/rh.smoothwm.nofix $DIR/surf/rh.inflated.nofix
 
-#------------------------------------------------------QSphere 
+#------------------------------------------------------QSphere
 
  ${FREESURFER_HOME}/bin/mris_sphere -q -seed 1234 $DIR/surf/lh.inflated.nofix $DIR/surf/lh.qsphere.nofix
 
@@ -480,14 +520,14 @@ ${FREESURFER_HOME}/bin/mri_fill -a $DIR/scripts/ponscc.cut.log -xform $DIRm/tran
 
  rm $DIR/surf/rh.inflated
 
-#---------------------------------------------------------Make White Surf 
+#---------------------------------------------------------Make White Surf
 
  ${FREESURFER_HOME}/bin/mris_make_surfaces -aseg aseg.presurf -white white.preaparc -noaparc -whiteonly -mgz -T1 brain.finalsurfs $SUB_ID lh
 
  ${FREESURFER_HOME}/bin/mris_make_surfaces -aseg aseg.presurf -white white.preaparc -noaparc -whiteonly -mgz -T1 brain.finalsurfs $SUB_ID rh
 
 
-#---------------------------------------------------------Smooth2 
+#---------------------------------------------------------Smooth2
 ${FREESURFER_HOME}/bin/mris_smooth -n 3 -nw -seed 1234 $DIR/surf/lh.white.preaparc $DIR/surf/lh.smoothwm
 
 ${FREESURFER_HOME}/bin/mris_smooth -n 3 -nw -seed 1234 $DIR/surf/rh.white.preaparc $DIR/surf/rh.smoothwm
@@ -541,7 +581,7 @@ ${FREESURFER_HOME}/bin/mris_ca_label -l $DIR/label/lh.cortex.label -aseg $DIR/mr
 
 ${FREESURFER_HOME}/bin/mris_ca_label -l $DIR/label/rh.cortex.label -aseg $DIR/mri/aseg.presurf.mgz -seed 1234 $SUB_ID rh $DIRs/rh.sphere.reg ${FREESURFER_HOME}/average/lh.DKaparc.atlas.acfb40.noaparc.i12.2016-08-02.gcs $DIR/label/rh.aparc.annot
 
-#----------------------------------------------------------Make Pial Surf 
+#----------------------------------------------------------Make Pial Surf
 ${FREESURFER_HOME}/bin/mri_convert $DIRm/brain.finalsurfs.mgz $ETOOL/brain.finalsurfs.nii.gz
 
 cd $ETOOL
