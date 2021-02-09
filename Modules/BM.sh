@@ -2,12 +2,7 @@
 print_help() {
 echo "
 Usage:
-
-
 	`basename $0` SUB_ID out_path
-
-
-
 Pam Garcia
 INB June,2020
 np.pam.garcia@gmail.com
@@ -28,10 +23,11 @@ out_path=$2
 
 PREEMACS_DIR=$out_path
 path_job=$PREEMACS_DIR/$SUB_ID
+PREEMACS_PATH=/misc/evarts2/PREEMACS
 #--------------------------------------------------------------
-#                                 PATHS                                       
+#                                 PATHS
 
-FSLDIR=/home/inb/lconcha/fmrilab_software/fsl_5.0.6/
+FSLDIR=/home/inb/lconcha/fmrilab_software/fsl_5.0.6/bin
 scripts_path=$PREEMACS_PATH/scripts
 MRTRIX_DIR=/home/inb/lconcha/fmrilab_software/mrtrix3.git/bin
 templates_path=$PREEMACS_PATH/templates
@@ -48,12 +44,4 @@ ants_path=/home/inb/lconcha/fmrilab_software/antsbin/bin
 	rm $path_job/brain_mask.nii
 	rm $path_job/brain.nii
 	${FSLDIR}/fslmaths $path_job/mask/brain_mask_orig.nii.gz -mul $path_job/T1_conform.nii.gz $path_job/T1_brain.nii.gz
-
-	$ants_path/antsRegistrationSyN.sh -d 3 -f $path_job/T1_brain.nii.gz -m $templates_path/NMT_brain_05.nii.gz -t a -o $path_job/mask/NMT_to_mask_
-	${FSLDIR}/fslmaths $path_job/mask/NMT_to_mask_Warped.nii.gz -bin $path_job/mask/NMT_to_mask_Warped_mask.nii.gz
-	${FSLDIR}/fslmaths $path_job/mask/NMT_to_mask_Warped_mask.nii.gz -dilM $path_job/mask/NMT_to_mask_Warped_mask.nii.gz
-	${FSLDIR}/fslmaths $path_job/mask/NMT_to_mask_Warped_mask.nii.gz -mul $path_job/T1_brain.nii.gz $path_job/T1_brain.nii.gz
-	%${FSLDIR}/fslmaths $path_job/T1_brain.nii.gz -bin $path_job/brain_mask.nii.gz
-	%${FSLDIR}/fslmaths $path_job/brain_mask.nii.gz -mul $path_job/T2_preproc.nii.gz $path_job/T2_brain.nii.gz
-	cp $path_job/T2_preproc.nii.gz $path_job/T2.nii.gz
-	cp $path_job/T1_preproc.nii.gz $path_job/T1.nii.gz
+	${FSLDIR}/fslmaths $path_job/mask/brain_mask_orig.nii.gz -bin $path_job/brain_mask.nii.gz
