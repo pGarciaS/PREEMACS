@@ -5,9 +5,9 @@ pipeline for **PRE**processing and **E**xtraction of the **MAC**aque brain **S**
 
 ![Alt text](https://github.com/pGarciaS/PREEMACS/blob/master/examples/PREEMACS_NHP_FREESURFER.png?raw=true)
 
-# **To Start**
+# **Install**
 
-For easy install review **Install_PREEMACS.ipynb** in WIKI
+For easy install review **Install_PREEMACS.ipynb** in Wiki
 
 ## **Module 1** 
 
