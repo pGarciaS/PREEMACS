@@ -46,7 +46,7 @@ if [ $# -lt 1 ]
  	exit 1
  fi
 #------------------------------------------------------------------------------#
-#                                 PATHS
+#                             CHECK PATHS
 
 PREEMACS_PATH=/misc/evarts2/PREEMACS
 FSLDIR=/home/inb/lconcha/fmrilab_software/fsl_5.0.6/
