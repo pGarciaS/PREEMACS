@@ -5,6 +5,10 @@ pipeline for **PRE**processing and **E**xtraction of the **MAC**aque brain **S**
 
 ![Alt text](https://github.com/pGarciaS/PREEMACS/blob/master/examples/PREEMACS_NHP_FREESURFER.png?raw=true)
 
+# **Install**
+
+For easy install review **Install_PREEMACS.ipynb** in WIKI
+
 ## **Module 1** 
 
 Performs volume orientation, image cropping, intensity non-uniformity correction, and volume averaging, ending with skull-stripping **(PREEMASK brainmask tool)** through a convolutional neural network.
