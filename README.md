@@ -7,7 +7,7 @@ pipeline for **PRE**processing and **E**xtraction of the **MAC**aque brain **S**
 
 # **Install**
 
-For easy install review **Install_PREEMACS.ipynb** in Wiki
+For easy install review Wiki
 
 ## **Module 1** 
 
