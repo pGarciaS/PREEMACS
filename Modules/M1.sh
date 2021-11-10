@@ -48,15 +48,16 @@ if [ $# -lt 1 ]
 #------------------------------------------------------------------------------#
 #                             CHECK PATHS
 
-PREEMACS_PATH=/misc/evarts2/PREEMACS
-FSLDIR=/home/inb/lconcha/fmrilab_software/fsl_5.0.6/
-matlab_path=/home/inb/soporte/fmrilab_software/MatlabR2018a/bin/matlab
-scripts_path=$PREEMACS_PATH/scripts
-FREESURFER_HOME=/home/inb/lconcha/fmrilab_software/freesurfer_6.0
-source $FREESURFER_HOME/SetUpFreeSurfer.sh
-MRTRIX_DIR=/home/inb/lconcha/fmrilab_software/mrtrix3.git/bin
+source ./pathFile.sh
+
+############Do not modify paths below this unless sure##########################
+
+curr_path=$( pwd )
+PREEMACS_PATH="$(dirname -- $curr_path)"
+
 templates_path=$PREEMACS_PATH/templates
-ants_path=/home/inb/lconcha/fmrilab_software/antsbin/bin
+scripts_path=$PREEMACS_PATH/scripts
+
 #------------------------------------------------------------------------------#
 #                                  Options
 #Defaults
@@ -273,7 +274,7 @@ done
 ## Image conform 256 or 520 take into account the original FOV
 	cd $scripts
 	echo "addpath('$scripts_path');data_conform=conform2('$path_job/reorient/','$nii_in','$path_out/','$nii_out');exit()" > $scripts/info.m
-	$matlab_path -r -nodisplay -nojvm info
+	$matlab_path -batch info
 	rm $scripts/info.m
 
 	done
@@ -322,7 +323,7 @@ out_square_FOV=${d/.nii.gz/}_square_FOV.nii.gz
 ### Precise image binarization
 	cd $scripts
 echo "addpath('$scripts_path');ones_reg_ants=crop_ants('$path_ants_reg/','$reg_file','$nii_out1');exit()" > $scripts/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 	rm $scripts/info.m
 	cd ../
 
@@ -331,7 +332,7 @@ $matlab_path -r -nodisplay -nojvm info
 ### Get dimensions of square FOV
 	cd $scripts
 echo "addpath('$scripts_path');NewMat=preemacs_square_crop('$TMP/','$out_not_square_FOV','$nii_out2');exit()" > $scripts/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 	rm $scripts/info.m
 	cd ../
 ### Get image native space with square FOV
@@ -339,7 +340,7 @@ $matlab_path -r -nodisplay -nojvm info
 ### Crop image
 	cd $scripts
 echo "addpath('$scripts_path');NewMat=preemacs_autocrop('$TMP/','$out_square_FOV','$nii_out3');exit()" > $scripts/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 	rm $scripts/info.m
 	cd ../
 
@@ -353,7 +354,7 @@ echo $nii_prefinal_crop
 
 cd $scripts
 echo "addpath('$scripts_path');image_crop=crop_only_brain_3('$TMP/','$nii_prefinal_crop','$size');exit()" > $scripts/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $scripts/info.m
 cd ../
 					var=$(cat $TMP/$size)
@@ -383,7 +384,7 @@ size=${d/.nii.gz/}_crop.txt
 
 cd $scripts
 echo "addpath('$scripts_path');image_crop=manual_crop_brain('$TMP/','$d','$coords','$size');exit()" > $scripts/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $scripts/info.m
 cd ../
 					var=$(cat $TMP/$size)
@@ -419,7 +420,7 @@ size=${d/.nii.gz/}_crop.txt
 
 cd $scripts
 echo "addpath('$scripts_path');image_crop=manual_crop_brain('$TMP/','$d','$coords','$size');exit()" > $scripts/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $scripts/info.m
 cd ../
 					var=$(cat $TMP/$size)
@@ -537,7 +538,7 @@ cd $path_job/
 
 cd $scripts
 echo "addpath('$scripts_path');data_conform=conform2('$path_job/','$nii_in','$path_job/','$nii_out');exit()" > $scripts/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $scripts/info.m
 
 ${FSLDIR}/bin/fslroi $path_job/$nii_in $path_job/$nii_in 0 1

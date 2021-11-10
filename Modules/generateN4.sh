@@ -25,6 +25,12 @@ Col="38;5;129m" # Color code
 echo  -e "\033[$Col\n[INFO]..... $1 \033[0m"
 }
 
+# PATHS 
+
+source ./pathFile.sh
+
+# DO NOT MODIFY BELOW THIS LINE
+
 #------------------------------------------------------------------------------#
 #			 Declaring variables & WARNINGS
 
@@ -71,9 +77,9 @@ fi
 
 #integrate the out_mask part into this script from the original file. 
 #Running N4bias field correction with macaque paramters
-N4BiasFieldCorrection -d 3 -b [100] -i ${bidsdir}/${subId}/anat/*.nii.gz  -o [bias_corrected.nii.gz,bias_image.nii.gz]
-fslmaths ${maskDir}/${subId}/brain_mask.nii.gz  -thr 0.0001 out_mask.nii.gz
-fslmaths bias_corrected.nii.gz -mul out_mask.nii.gz out_file.nii.gz
+${ants_path}/N4BiasFieldCorrection -d 3 -b [100] -i ${bidsdir}/${subId}/anat/*.nii.gz  -o [bias_corrected.nii.gz,bias_image.nii.gz]
+${FSLDIR}/fslmaths ${maskDir}/${subId}/brain_mask.nii.gz  -thr 0.0001 out_mask.nii.gz
+${FSLDIR}/fslmaths bias_corrected.nii.gz -mul out_mask.nii.gz out_file.nii.gz
 cd -
 
 echo "Script has finished executing succesfully\n"

@@ -21,19 +21,24 @@ SUB_ID=$1
 out_path=$2
 ####################################
 
+#                              PATHS           
+
+
+source ./pathFile.sh
+
+### DO NOT MODIFY BELOW THIS LINE
+
 PREEMACS_DIR=$out_path
 path_job=$PREEMACS_DIR/$SUB_ID
 scripts=$PREEMACS_DIR/$SUB_ID/scripts
-CARETDIR=/misc/evarts/Pam/HCP/workbench/exe_linux64
-PREEMACS_PATH=/misc/evarts2/PREEMACS
-FSLDIR=/home/inb/lconcha/fmrilab_software/fsl_5.0.6/
-matlab_path=/home/inb/soporte/fmrilab_software/MatlabR2018a/bin/matlab
+
+curr_path=$( pwd )
+PREEMACS_PATH="$(dirname -- $curr_path)"
+
 scripts_path=$PREEMACS_PATH/scripts
-FREESURFER_HOME=/home/inb/lconcha/fmrilab_software/freesurfer_6.0
-MRTRIX_DIR=/home/inb/lconcha/fmrilab_software/mrtrix3.git/bin
 templates_path=$PREEMACS_PATH/templates
-ants_path=/home/inb/lconcha/fmrilab_software/antsbin/bin
 minc_path=$PREEMACS_PATH/programs
+CARETDIR=${scripts_path}/caretDir
 
 # # -------------------------------------------------------------- -Check Dice value of PREEMACS braintool mask
 
@@ -50,7 +55,7 @@ minc_path=$PREEMACS_PATH/programs
 
 cd $scripts
 echo "addpath('$scripts_path');NewMat=preemacs_autocrop('$path_job/','T1_conform.nii.gz','T1_preproc.nii.gz');exit()" > $scripts/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $scripts/info.m
 cd ../
 
@@ -158,13 +163,13 @@ $ants_path/ImageMath 3 $path_job/T1.nii.gz TruncateImageIntensity $path_job/T1.n
 
 cd $scripts
 echo "addpath('$scripts_path');[NII]= fake_space('$path_job/','T1',[1;1;1;1;0;0;0;0],'_fake','T1');exit()" > $scripts/info.m
-	$matlab_path -r -nodisplay -nojvm info
+	$matlab_path -batch info
 	rm $scripts/info.m
 
 cd $scripts
 
 echo "addpath('$scripts_path');[NII]= fake_space('$path_job/','T2',[1;1;1;1;0;0;0;0],'_fake','T2');exit()" > $scripts/info.m
-	$matlab_path -r -nodisplay -nojvm info
+	$matlab_path -batch info
 	rm $scripts/info.m
 
 
@@ -193,7 +198,7 @@ mask_native_space=$path_job/brain_mask.nii.gz
 
 cd $DIR_bm
 echo "addpath('$scripts_path');fake_space('$DIR_bm/','T1',[1;0.5;0.5;0.5;0;0;0;0],'_no_fake','T1');exit()" > $DIR_bm/info.m
- $matlab_path -r -nodisplay -nojvm info
+ $matlab_path -batch info
 rm $DIR_bm/info.m
 
 ${FSLDIR}/bin/flirt -ref $DIR_bm/T1_no_fake.nii.gz  -in $path_job/T1.nii.gz  -out $DIR_bm/ATLAS_TO_T1.nii.gz -dof 12 -searchrx -180 180 -searchry -180 180 -searchrz -180 180 -omat $DIR_bm/ATLAS_TO_T1.mat
@@ -201,7 +206,7 @@ ${FSLDIR}/bin/flirt -ref $DIR_bm/ATLAS_TO_T1.nii.gz -in $mask_native_space -appl
 
 cd $DIR_bm/
 echo "addpath('$scripts_path');fake_space('$DIR_bm/','T1',[1;1;1;1;0;0;0;0],'_fake','MASK_ATLAS_TO_T1');exit()" > $DIR_bm/info.m
- $matlab_path -r -nodisplay -nojvm info
+ $matlab_path -batch info
 rm $DIR_bm/info.m
 
 #mv $DIRm/brainmask.auto.mgz $DIRm/brainmask_original.auto.mgz
@@ -248,7 +253,7 @@ ${FSLDIR}/bin/flirt -ref $DIR_bm/brain_no_fake.nii.gz  -in $fix_wm/fs_atlas.nii.
 
 cd $fix_wm
 echo "addpath('$scripts_path');fake_space('$fix_wm/','T1',[1;1;1;1;0;0;0;0],'_fake','brain_for_fix_fs_space');exit()" > $fix_wm/info.m
- $matlab_path -r -nodisplay -nojvm info
+ $matlab_path -batch info
 rm $fix_wm/info.m
 
 mv $DIRm/aseg.auto.mgz  $DIRm/aseg.presurf_orig.mgz
@@ -301,18 +306,18 @@ ${FSLDIR}/bin/flirt -ref $DIR_bm/brain_no_fake.nii.gz  -in $fix_wm/claustro.nii.
 
 cd $fix_wm
 echo "addpath('$scripts_path');fake_space('$fix_wm/','T1',[1;1;1;1;0;0;0;0],'_fake','bg_ventricules_smooth_mul_fs_space');exit()" > $fix_wm/info.m
- $matlab_path -r -nodisplay -nojvm info
+ $matlab_path -batch info
 rm $fix_wm/info.m
 
 
 cd $fix_wm
 echo "addpath('$scripts_path');fake_space('$fix_wm/','T1',[1;1;1;1;0;0;0;0],'_fake','bg_ventricules_smooth_binv_fs_space');exit()" > $fix_wm/info.m
- $matlab_path -r -nodisplay -nojvm info
+ $matlab_path -batch info
 rm $fix_wm/info.m
 
 cd $fix_wm
 echo "addpath('$scripts_path');fake_space('$fix_wm/','T1',[1;1;1;1;0;0;0;0],'_fake','claustro');exit()" > $fix_wm/info.m
- $matlab_path -r -nodisplay -nojvm info
+ $matlab_path -batch info
 rm $fix_wm/info.m
 
 
@@ -381,7 +386,7 @@ ${FREESURFER_HOME}/bin/mri_convert $DIR/mri/brain.mgz $HICPO/brain.nii.gz
 
 cd $HICPO
 echo "addpath('$scripts_path');convert('$HICPO/',[1;0.5;0.5;0.5;0;0;0;0],'_no_fake');exit()" > $HICPO/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $HICPO/info.m
 
 $ants_path/WarpImageMultiTransform 3 $High_Intensity_ROI $HICPO/MASK_WM.SEG_FOR_CROP.nii.gz -R $reference_image $image_1Warp $txt_from_registration --use-NN
@@ -429,7 +434,7 @@ ${FREESURFER_HOME}/bin/mri_convert $HICPO/wm.seg_MOD.mgz $HICPO/wm.seg_MOD.nii.g
 
 cd $HICPO
 echo "addpath('$scripts_path');convert('$HICPO/',[1;0.5;0.5;0.5;0;0;0;0],'_no_fake');exit()" > $HICPO/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $HICPO/info.m
 
 $ants_path/WarpImageMultiTransform 3 $High_Intensity_ROI $HICPO/MASK_WM.SEG_FOR_CROP.nii.gz -R $reference_image $image_1Warp $txt_from_registration --use-NN
@@ -442,7 +447,7 @@ ${FSLDIR}/bin/fslmaths $HICPO/1.nii.gz -add $HICPO/2.nii.gz $HICPO/wm.seg_final_
 
 cd $HICPO
 echo "addpath('$scripts_path');convert_wm_ed_fake('$HICPO/');exit()" > $HICPO/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $HICPO/info.m
 
 mv $DIRm/wm.seg.mgz $DIRm/wm.seg_original.mgz
@@ -586,7 +591,7 @@ ${FREESURFER_HOME}/bin/mri_convert $DIRm/brain.finalsurfs.mgz $ETOOL/brain.final
 
 cd $ETOOL
 echo "addpath('$scripts_path');convertseq('$ETOOL','T1',[1;0.5;0.5;0.5;0;0;0;0],'_no_fake','brain.finalsurfs');exit()" > $ETOOL/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $ETOOL/info.m
 
 #-------------  1.Get FS labels from NMT
@@ -610,7 +615,7 @@ ${FSLDIR}/bin/fslmaths $DIRm/cross_T1_binv.nii.gz -mul $ETOOL/brain.finalsurfs_n
 
 cd $ETOOL
 echo "addpath('$scripts_path');convertseq('$ETOOL','T1',[1;1;1;1;0;0;0;0],'_fake','brain.finalsurfs_no_fake_no_T2_cross');exit()" > $ETOOL/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $ETOOL/info.m
 
 ${FSLDIR}/bin/fslmaths  $ETOOL/brain.finalsurfs_no_fake_no_T2_cross_fake.nii.gz -mul $DIR_bm/MASK_ATLAS_TO_T1_fake.nii.gz $ETOOL/brain.finalsurfs_no_fake_no_T2_cross_fake.nii.gz
@@ -680,12 +685,12 @@ ${FSLDIR}/bin/fslmaths $ETOOL/ribbon_25.nii.gz -add $ETOOL/ribbon_15.nii.gz $ETO
 
 cd $ETOOL
 echo "addpath('$scripts_path');convertseq('$ETOOL','T1',[1;0.5;0.5;0.5;0;0;0;0],'_no_fake','T1');exit()" > $ETOOL/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $ETOOL/info.m
 
 cd $ETOOL
 echo "addpath('$scripts_path');convertseq('$ETOOL','T2',[1;0.5;0.5;0.5;0;0;0;0],'_no_fake','T2.prenorm');exit()" > $ETOOL/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $ETOOL/info.m
 
 $ants_path/WarpImageMultiTransform 3 $Mean_Wall $ETOOL/mean_wall_reg.nii.gz -R $reference_image $image_1Warp $txt_from_registration --use-NN
@@ -708,7 +713,7 @@ ${FSLDIR}/bin/fslmaths $ETOOL/T2_pre_pial.nii.gz -mul $ETOOL/HIPOS_mask_inverse.
 
 cd $ETOOL
 echo "addpath('$scripts_path');convertseq('$ETOOL','T2',[1;1;1;1;0;0;0;0],'_fake','T2_pre_pial');exit()" > $ETOOL/info.m
-$matlab_path -r -nodisplay -nojvm info
+$matlab_path -batch info
 rm $ETOOL/info.m
 
 ${FREESURFER_HOME}/bin/mri_convert $ETOOL/T2_pre_pial_fake.nii.gz $DIR/mri/T2.prenorm.mgz

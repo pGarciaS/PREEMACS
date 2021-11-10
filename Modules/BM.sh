@@ -21,17 +21,20 @@ SUB_ID=$1
 out_path=$2
 ####################################
 
+
+#--------------------------------------------------------------
+#                              PATHS 
+
+source ./pathFile.sh
+
+#### DO NOT MODIFY BELOW THIS LINE##############################################
 PREEMACS_DIR=$out_path
 path_job=$PREEMACS_DIR/$SUB_ID
-PREEMACS_PATH=/misc/evarts2/PREEMACS
-#--------------------------------------------------------------
-#                                 PATHS
-
-FSLDIR=/home/inb/lconcha/fmrilab_software/fsl_5.0.6/bin
+curr_path=$( pwd )
+PREEMACS_PATH="$(dirname -- $curr_path)"
 scripts_path=$PREEMACS_PATH/scripts
-MRTRIX_DIR=/home/inb/lconcha/fmrilab_software/mrtrix3.git/bin
 templates_path=$PREEMACS_PATH/templates
-ants_path=/home/inb/lconcha/fmrilab_software/antsbin/bin
+
 
 #--------------------------------------------------------------
 #                              BRAIN MASK
