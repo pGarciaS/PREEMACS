@@ -3,70 +3,101 @@
 #Arun Garimella
 #9 Nov 2021
 
+# May 13 2024 Luis Concha
+# Removed default installations
+
 # Check installation of the following programs
-fslOut=/home/inb/lconcha/fmrilab_software/fsl_5.0.6
-freesurferOut=/usr/local/freesurfer/bin
-matlabOut=/usr/local/MATLAB/R2021a/bin/matlab
-mrtrixOut=/home/kilimanjaro2/anaconda3/envs/mrtrix/bin
-antsOut=/opt/ANTs/bin
  
+
+# User should have installed the following tools:
+# fsl (tested with version 6.0.4.1)
+# freesurfer (tested with version 7.4.1)
+# Matlab (tested with version R2023a)
+# MRtrix (tested with version 3.0.4)
+# ANTS (tested with version 2.4.4)
+# pytorch (python module, tested with version 2.3.0)
+
+#####
+# This file is to be run as this:
+# source pathFile.sh
+####
+
+
+
+
+
+
+
+
+
+
+
 #Do not change after this
+isOK=1
 
 #FSL
-echo "Checking FSL"
+echo "Checking FSL ..."
 if [ ! -d "$FSLDIR" ]; then
-	export FSLDIR=${fslOut}
-	if [ ! -d "$FSLDIR" ]; then
-		echo "FSL not installed"; 
-		exit $ERRCODE; 
-	fi
+	echo "FSL not installed"; 
+	isOK=0 
+else
+	echo "  FSL is found at ${FSLDIR}" 
 fi
-echo "FSL is found at ${FSLDIR}" 
 
 #FREESURFER
-echo "Checking Freesurfer"
-#if [ ! -d "$FREESURFER_HOME" ]; then
-	export FREESURFER_HOME=${freesurferOut}
-	if [ ! -d "$FREESURFER_HOME" ]; then
-		echo "Freesurfer not installed"; 
-		exit $ERRCODE; 
-	fi
-	echo "Freesurfer is found at ${FREESURFER_HOME}" 
-	source $FREESURFER_HOME/SetUpFreeSurfer.sh
-#fi
-echo "FREESURFER is found at ${FREESURFER_HOME}" 
+echo "Checking Freesurfer ..."
+if [ ! -d "$FREESURFER_HOME" ]; then
+	echo "Freesurfer not installed"; 
+	isOK=0 
+else
+	echo "  FREESURFER is found at ${FREESURFER_HOME}" 
+fi
 
 #MATLAB
-echo "Checking MATLAB"
-if [ ! -f "$matlab_path" ]; then
-	export matlab_path=${matlabOut}
-	if [ ! -f "$matlab_path" ]; then
-		echo "matlab not installed"; 
-		exit $ERRCODE; 
-	fi
+echo "Checking MATLAB ..."
+if [ -z $(which matlab) ]; then
+	echo "matlab not installed"; 
+	isOK=0 
+else 
+	matlab_bin=$(which matlab)
+	export matlab_path=$(dirname $matlab_bin)
+	echo "  MATLAB is found at ${matlab_path}" 
 fi
-echo "MATLAB is found at ${matlab_path}" 
 
 #MRTRIX
-echo "Checking MRTRIX"
-if [ ! -d "$MRTRIX_DIR" ]; then
-	export MRTRIX_DIR=${mrtrixOut}
-	if [ ! -d "$MRTRIX_DIR" ]; then
-		echo "MRTRIX not installed"; 
-		exit $ERRCODE; 
-	fi
+echo "Checking MRTRIX ..."
+if [ -z $(which mrcalc) ]; then
+	echo "MRTRIX not installed"; 
+	isOK=0 
+else
+	mrcalc_bin=$(which mrcalc)
+	MRTRIX_DIR=$(dirname $mrcalc_bin)
+	echo "  MRTRIX is found at ${MRTRIX_DIR}" 
 fi
-echo "MRTRIX is found at ${MRTRIX_DIR}" 
 
 #ANTS
-echo "Checking ANTS"
-if [ ! -d "$ants_path" ]; then
-	export ants_path=${antsOut}
-	if [ ! -d "$ants_path" ]; then
-		echo "ANTS not installed"; 
-		exit $ERRCODE; 
-	fi
+echo "Checking ANTS ..."
+if [ ! -d $ANTSPATH ]; then
+	echo "ANTS not installed"; 
+	isOK=0 
+else
+	export ants_path=$ANTSPATH
+	echo "  ANTs is found at ${ants_path}" 
 fi
-echo "ANTs is found at ${ants_path}" 
 
+# Pytorch
+echo "Checking pytorch ..."
+python -c "import torch"
+if [ $? -ne 0 ]; then
+	echo "pytorch not installed"; 
+	isOK=0  
+else
+	echo "  Pytorch module exists." 
+fi
 
+if [ $isOK -eq 1 ]
+then
+  echo "All requirements are installed and configured, OK lets go!"
+else
+  echo "[ERROR] There are unmet dependencies. Please configure accordingly and run again."
+fi
