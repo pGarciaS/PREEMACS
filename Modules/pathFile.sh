@@ -8,60 +8,96 @@
 
 # Check installation of the following programs
  
+
+# User should have installed the following tools:
+# fsl (tested with version 6.0.4.1)
+# freesurfer (tested with version 7.4.1)
+# Matlab (tested with version R2023a)
+# MRtrix (tested with version 3.0.4)
+# ANTS (tested with version 2.4.4)
+# pytorch (python module, tested with version 2.3.0)
+
+#####
+# This file is to be run as this:
+# source pathFile.sh
+####
+
+
+
+
+
+
+
+
+
+
+
 #Do not change after this
+isOK=1
 
 #FSL
 echo "Checking FSL ..."
 if [ ! -d "$FSLDIR" ]; then
-		echo "FSL not installed"; 
-		exit $ERRCODE; 
+	echo "FSL not installed"; 
+	isOK=0 
+else
+	echo "  FSL is found at ${FSLDIR}" 
 fi
-echo "  FSL is found at ${FSLDIR}" 
 
 #FREESURFER
 echo "Checking Freesurfer ..."
-	if [ ! -d "$FREESURFER_HOME" ]; then
-		echo "Freesurfer not installed"; 
-		exit $ERRCODE; 
-	fi
-echo "  FREESURFER is found at ${FREESURFER_HOME}" 
+if [ ! -d "$FREESURFER_HOME" ]; then
+	echo "Freesurfer not installed"; 
+	isOK=0 
+else
+	echo "  FREESURFER is found at ${FREESURFER_HOME}" 
+fi
 
 #MATLAB
 echo "Checking MATLAB ..."
 if [ -z $(which matlab) ]; then
-		echo "matlab not installed"; 
-		exit $ERRCODE; 
+	echo "matlab not installed"; 
+	isOK=0 
+else 
+	matlab_bin=$(which matlab)
+	export matlab_path=$(dirname $matlab_bin)
+	echo "  MATLAB is found at ${matlab_path}" 
 fi
-matlab_bin=$(which matlab)
-export matlab_path=$(dirname $matlab_bin)
-echo "  MATLAB is found at ${matlab_path}" 
 
 #MRTRIX
 echo "Checking MRTRIX ..."
 if [ -z $(which mrcalc) ]; then
-		echo "MRTRIX not installed"; 
-		exit $ERRCODE; 
+	echo "MRTRIX not installed"; 
+	isOK=0 
+else
+	mrcalc_bin=$(which mrcalc)
+	MRTRIX_DIR=$(dirname $mrcalc_bin)
+	echo "  MRTRIX is found at ${MRTRIX_DIR}" 
 fi
-mrcalc_bin=$(which mrcalc)
-MRTRIX_DIR=$(dirname $mrcalc_bin)
-echo "  MRTRIX is found at ${MRTRIX_DIR}" 
 
 #ANTS
 echo "Checking ANTS ..."
 if [ ! -d $ANTSPATH ]; then
-		echo "ANTS not installed"; 
-		exit $ERRCODE; 
+	echo "ANTS not installed"; 
+	isOK=0 
+else
+	export ants_path=$ANTSPATH
+	echo "  ANTs is found at ${ants_path}" 
 fi
-export ants_path=$ANTSPATH
-echo "  ANTs is found at ${ants_path}" 
-
 
 # Pytorch
 echo "Checking pytorch ..."
 python -c "import torch"
 if [ $? -ne 0 ]; then
-		echo "pytorch not installed"; 
-		exit $ERRCODE; 
+	echo "pytorch not installed"; 
+	isOK=0  
+else
+	echo "  Pytorch module exists." 
 fi
-echo "  Pytorch module exists." 
 
+if [ $isOK -eq 1 ]
+then
+  echo "All requirements are installed and configured, OK lets go!"
+else
+  echo "[ERROR] There are unmet dependencies. Please configure accordingly and run again."
+fi
