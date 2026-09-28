@@ -1,4 +1,4 @@
-#!/misc/evarts2/ambiente_anaconda/bskull/bin/python
+#!/opt/venvs/deepbrain/bin/python3
 
 import nibabel as nib
 from deepbrain import Extractor

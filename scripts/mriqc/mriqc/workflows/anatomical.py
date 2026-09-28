@@ -73,7 +73,10 @@ def anat_qc_workflow(dataset, mdir, tempdir, name='anatMRIQC'):
     #    + config.workflow.inputs.get("T2w", [])
 
     global sub_id, moddir, templatedir
-    sub_id = str(op.basename(op.dirname(op.dirname(dataset[0]))))
+    # dataset[0] is <dataDir>/<subId>/T1_conform.nii.gz (M1's conformed output,
+    # not a raw BIDS anat/ file -- one directory level shallower than this
+    # used to assume).
+    sub_id = str(op.basename(op.dirname(dataset[0])))
     moddir = mdir
     templatedir = tempdir
     #print(sub_id)
@@ -102,6 +105,17 @@ Building anatomical MRIQC workflow for files: {', '.join(dataset)}.""")
     asw.inputs.template = '*'
     asw.inputs.field_template = dict(bias_corrected = 'bias_corrected.nii.gz', bias_image = 'bias_image.nii.gz', out_file = 'out_file.nii.gz', out_mask = 'out_mask.nii.gz')
     asw.inputs.sort_filelist= False
+    # DataGrabber(outfields=...) without infields defaults template_args[key]
+    # to [] (no arglists) for every key -- which sends _list_outputs() down
+    # a code path that assigns outputs[key] a bare string/None via
+    # simplify_list() instead of a list, then unconditionally does
+    # `if None in outputs[key]` a few lines later assuming a list, raising
+    # "TypeError: 'in <string>' requires string as left operand, not
+    # NoneType" -- unconditionally, even when every templated file exists.
+    # Giving each key one (empty) arglist routes through the normal
+    # list-building branch instead, matching what DataGrabber itself does
+    # internally when infields is supplied.
+    asw.inputs.template_args = dict(bias_corrected=[[]], bias_image=[[]], out_file=[[]], out_mask=[[]])
 
     # 3. Head mask
     hmsk = headmsk_wf()
@@ -206,8 +220,8 @@ def spatial_normalization(name='SpatialNormalization', resolution=1):
         # Request all MultiProc processes when ants_nthreads > n_procs
         num_threads=config.nipype.omp_nthreads,
         mem_gb=3)
-    norm.inputs.reference_mask = str(templatedir + 'NMT_brain_mask.nii.gz')
-    norm.inputs.reference_image = str(templatedir + 'NMT_brain_template.nii.gz')
+    norm.inputs.reference_mask = op.join(templatedir, 'NMT_brain_mask.nii.gz')
+    norm.inputs.reference_image = op.join(templatedir, 'NMT_brain_template.nii.gz')
 
     workflow.connect([
         (inputnode, norm, [('moving_image', 'moving_image'),
@@ -245,7 +259,15 @@ def compute_iqms(name='ComputeIQMs'):
                          name='outputnode')
 
     # Extract metadata
-    meta = pe.Node(ReadSidecarJSON(), name='metadata')
+    # bids_validate defaults to True, which makes pybids require a
+    # dataset_description.json at dataDir's root -- dataDir is PREEMACS' own
+    # per-subject processed-space output directory (M1's -out_path), not a
+    # raw BIDS dataset, so it has no such file and BIDSLayout() raises
+    # BIDSValidationError unconditionally. No named `fields=` are requested
+    # here, so with validation off this just yields an empty metadata dict
+    # (no scanner sidecar JSON exists at this stage either) instead of
+    # crashing.
+    meta = pe.Node(ReadSidecarJSON(bids_validate=False), name='metadata')
 
     # Add provenance
     addprov = pe.Node(AddProvenance(), name='provenance',
@@ -270,9 +292,9 @@ def compute_iqms(name='ComputeIQMs'):
         dimension=3, default_value=0, interpolation='Linear',
         float=True),
         iterfield=['input_image'], name='MNItpms2t1')
-    invt.inputs.input_image = [str(templatedir + 'NMT_segmentation_CSF.nii.gz'),
-        str(templatedir + 'NMT_segmentation_GM.nii.gz'),
-        str(templatedir + 'NMT_segmentation_WM.nii.gz')]
+    invt.inputs.input_image = [op.join(templatedir, 'NMT_segmentation_CSF.nii.gz'),
+        op.join(templatedir, 'NMT_segmentation_GM.nii.gz'),
+        op.join(templatedir, 'NMT_segmentation_WM.nii.gz')]
 
     datasink = pe.Node(IQMFileSink(
         out_dir=config.execution.output_dir,
@@ -519,7 +541,7 @@ def airmsk_wf(name='AirMaskWorkflow'):
     invt = pe.Node(ants.ApplyTransforms(
         dimension=3, default_value=0, interpolation='MultiLabel', float=True),
         name='invert_xfm')
-    invt.inputs.input_image = str(templatedir + 'NMT_head_mask.nii.gz')
+    invt.inputs.input_image = op.join(templatedir, 'NMT_head_mask.nii.gz')
     #invt = pe.Node(nio.DataGrabber(outfields=['output_image']),name='invt')
     #invt.inputs.base_directory = op.abspath(op.join(moddir, sub_id))
     #invt.inputs.template = '*'

@@ -83,8 +83,14 @@ class IQMFileSink(SimpleInterface):
             out_dir = Path(self.inputs.out_dir)
 
         # Crawl back to the BIDS root
+        # Original assumed sub-XXX/<modality-dir>/file.nii.gz (sub-XXX two
+        # levels up), hence starting at i=1. PREEMACS' own dataDir layout is
+        # one level shallower (sub-XXX/file.nii.gz, per the 2026-08-24
+        # decision to evaluate M1's conformed output directly, no anat/
+        # subdirectory) -- sub-XXX sits at parents[0], which range(1, 4)
+        # never checks, leaving bids_root unassigned.
         path = Path(self.inputs.in_file)
-        for i in range(1, 4):
+        for i in range(0, 4):
             if str(path.parents[i].name).startswith("sub-"):
                 bids_root = path.parents[i + 1]
                 break

@@ -1,0 +1,8 @@
+preemacs.sif
+preemacs.sif.bak*
+preemacs_sandbox/
+container/cache/
+scripts/mriqc/build/
+scripts/mriqc/mriqc.egg-info/
+scripts/mriqc/__pycache__/
+**/__pycache__/

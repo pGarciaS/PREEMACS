@@ -48,7 +48,6 @@ IN=$1
 OUT=$2
 #-----------------------------------------------------------------
 minc_path=$PREEMACS_PATH/programs
-FREESURFER_HOME=/home/inb/lconcha/fmrilab_software/freesurfer_6.0
 source $FREESURFER_HOME/SetUpFreeSurfer.sh
 #-----------------------------------------------------------------
 tmpDir=/tmp/mincnlm_$$
@@ -68,11 +67,11 @@ mncFile=${tmpDir}/mncFile.mnc
 
 #my_do_cmd nii2mnc $IN ${mncFile}
 # CAREFUL, mnc2nii is making funny things with image orientation!!!
-${FREESURFER_HOME}/mri_convert $IN ${mncFile}
+${FREESURFER_HOME}/bin/mri_convert $IN ${mncFile}
 ${minc_path}/mincnlm ${mncFile} ${mncFile%.mnc}_denoised.mnc
 #my_do_cmd mnc2nii ${mncFile%.mnc}_denoised.mnc ${OUT%.gz}
 # CAREFUL, mnc2nii is making funny things with image orientation!!!
-${FREESURFER_HOME}/mri_convert ${mncFile%.mnc}_denoised.mnc ${OUT%.gz}
+${FREESURFER_HOME}/bin/mri_convert ${mncFile%.mnc}_denoised.mnc ${OUT%.gz}
 
 
 if [ $isZipped -eq 1 ]

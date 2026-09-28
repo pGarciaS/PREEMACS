@@ -19,6 +19,24 @@ fi
 
 SUB_ID=$1
 out_path=$2
+
+Info() {
+Col="38;5;129m" # Color code
+echo  -e "\033[$Col\n[INFO]..... $1 \033[0m"
+}
+
+# recon-all refuses to run "-i" on a subject folder that already exists, and
+# $out_path/$SUB_ID always exists by now (it holds M1/BM's output). FreeSurfer's
+# own tree therefore has to live somewhere else -- SUBJECTS_DIR must be set and
+# must differ from out_path.
+if [ -z "${SUBJECTS_DIR:-}" ]; then
+	echo -e "\e[0;36m\n[ERROR]... SUBJECTS_DIR is not set. Pass a directory for FreeSurfer's own output (different from out_path), e.g. --env SUBJECTS_DIR=/data/fs\n\e[0m"
+	exit 1
+fi
+if [ "$(readlink -f "$SUBJECTS_DIR")" = "$(readlink -f "$out_path")" ]; then
+	echo -e "\e[0;36m\n[ERROR]... SUBJECTS_DIR must differ from out_path ($out_path): recon-all rejects a subject folder that already exists.\n\e[0m"
+	exit 1
+fi
 ####################################
 
 #                              PATHS           
@@ -27,6 +45,10 @@ out_path=$2
 source ./pathFile.sh
 
 ### DO NOT MODIFY BELOW THIS LINE
+
+# Stop at the first failing command: without this, one early failure lets the
+# multi-hour FreeSurfer stages run on garbage inputs.
+set -e
 
 PREEMACS_DIR=$out_path
 path_job=$PREEMACS_DIR/$SUB_ID
@@ -65,7 +87,7 @@ $ants_path/antsRegistrationSyN.sh -d 3 -f $path_job/T1_preproc.nii.gz -m $path_j
 mv  $path_job/brain_mask.nii.gz $path_job/mask/brain_mask_image_256.nii.gz
 
 ${FSLDIR}/bin/fslmaths $path_job/T1_brain_crop_Warped.nii.gz -bin $path_job/brain_mask.nii.gz
-${FSLDIR}/bin/fslmaths $path_job/brain_mask.nii.gz kernel box 1x1x1 -fmean $path_job/brain_mask.nii.gz
+${FSLDIR}/bin/fslmaths $path_job/brain_mask.nii.gz -kernel box 1x1x1 -fmean $path_job/brain_mask.nii.gz
 ${FSLDIR}/bin/fslmaths $path_job/brain_mask.nii.gz -mul $path_job/T1_preproc.nii.gz $path_job/T1_brain.nii.gz
 
 ##---------------------------------------------------------------- T1_T2 reg -----------------------------------------------------#
@@ -128,7 +150,12 @@ echo $MEAN
 Lower=`echo "$MEAN - ($STD * $Factor)" | bc -l`
 echo $Lower
 ${FSLDIR}/bin/fslmaths $path_job/HCP/T1wmulT2w_brain_norm_modulate -thr $Lower -bin -ero -mul 255 $path_job/HCP/T1wmulT2w_brain_norm_modulate_mask
-${CARETDIR}/wb_command -volume-remove-islands $path_job/HCP/T1wmulT2w_brain_norm_modulate_mask.nii.gz $path_job/HCP/T1wmulT2w_brain_norm_modulate_mask.nii.gz
+# wb_command -volume-remove-islands (keeps only the largest face-connected component)
+# needs Qt4, which Ubuntu 22.04 no longer ships. maskfilter connect -largest is the
+# same operation (default 6-connectivity; verified voxel-identical to scipy.ndimage
+# on this mask). Written to a temp file first: MRtrix3 must not overwrite its input.
+${MRTRIX_DIR}/maskfilter $path_job/HCP/T1wmulT2w_brain_norm_modulate_mask.nii.gz connect -largest $path_job/HCP/T1wmulT2w_brain_norm_modulate_mask_largest.nii.gz -force
+mv $path_job/HCP/T1wmulT2w_brain_norm_modulate_mask_largest.nii.gz $path_job/HCP/T1wmulT2w_brain_norm_modulate_mask.nii.gz
 
 ## Extrapolate normalised sqrt image from mask region out to whole FOV
 ${FSLDIR}/bin/fslmaths $path_job/HCP/T1wmulT2w_brain_norm.nii.gz -mas $path_job/HCP/T1wmulT2w_brain_norm_modulate_mask.nii.gz -dilall $path_job/HCP/bias_raw.nii.gz -odt float
@@ -137,7 +164,7 @@ ${FSLDIR}/bin/fslmaths $path_job/HCP/bias_raw.nii.gz -s $BiasFieldSmoothingSigma
 ## Use bias field output to create corrected images
 ${FSLDIR}/bin/fslmaths $path_job/T1.nii.gz -div $path_job/HCP/BiasField.nii.gz -mas $path_job/T1_brain.nii.gz $path_job/HCP/T1_Brain_RestoredImage.nii.gz -odt float
 ${FSLDIR}/bin/fslmaths $path_job/T1.nii.gz -div $path_job/HCP/BiasField.nii.gz $path_job/HCP/T1_RestoredImage.nii.gz -odt float
-${FSLDIR}/bin/fslmaths $path_job/T2.nii.gz -div $path_job/HCP/BiasField.nii.gz -mas $path_job/T2_brain.nii.gz $Output_$path_job/HCP/T2_Brain_RestoredImage.nii.gz -odt float
+${FSLDIR}/bin/fslmaths $path_job/T2.nii.gz -div $path_job/HCP/BiasField.nii.gz -mas $path_job/T2_brain.nii.gz $path_job/HCP/T2_Brain_RestoredImage.nii.gz -odt float
 ${FSLDIR}/bin/fslmaths $path_job/T2.nii.gz -div $path_job/HCP/BiasField.nii.gz $path_job/HCP/T2_RestoredImage.nii.gz -odt float
 
 ## Copy images without bet to use init FS
@@ -175,7 +202,34 @@ echo "addpath('$scripts_path');[NII]= fake_space('$path_job/','T2',[1;1;1;1;0;0;
 
 # #-------------------------------------------------------- FS process autorecon1
 
-${FREESURFER_HOME}/bin/recon-all -i $path_job/T1_fake.nii.gz -s $SUB_ID -T2 $path_job/T2_fake.nii.gz -T2pial -autorecon1 -noskullstrip
+# -noT2pial must come AFTER -T2: in FreeSurfer 7 the -T2 option itself turns on T2 pial
+# refinement, and recon-all then registers T2 to brainmask.mgz right after normalization
+# (recon-all "Refine Pial Surfs w/ T2/FLAIR"). -noskullstrip means brainmask.mgz doesn't
+# exist yet, so recon-all would exit with an error. The T2 *import* is unaffected, and the
+# T2 pial refinement is done explicitly further down (bbregister + mris_make_surfaces -T2).
+# recon-all's talairach_afd check is tuned for human brains: for a macaque scaled to human size
+# it is DETERMINISTIC, not flaky (verified: identical p-values -- 0.0000, 0.0480, 0.0413 -- across
+# every run of this same data) -- it rejects all 3 of recon-all's own built-in atlas retries and
+# then aborts ("ERROR: Talairach failed!"), which used to kill the whole multi-hour run at minute 5.
+# -notal-check is NOT a fix: that flag disables the afd check itself, but recon-all's alternate-atlas
+# retries are gated behind that same check failing, so with -notal-check recon-all silently keeps
+# the garbage FIRST-atlas transform -- Intensity Normalization then reads a blank nu.mgz and fails.
+# The actual fix: let recon-all run its check and exhaust all 3 atlas retries as normal (that part
+# is unaffected by the macaque-vs-human mismatch), then finish the two remaining -autorecon1 stages
+# by hand against the transform already on disk. Verified this produces a real, non-blank nu.mgz
+# (mean 7.3, max 134, 15.7% nonzero -- not the all-zero volume -notal-check produces).
+if [ -e "${SUBJECTS_DIR:?}/${SUB_ID:?}" ]; then
+	echo -e "\e[0;36m\n[ERROR]... $SUBJECTS_DIR/$SUB_ID already exists; recon-all would refuse it. Remove it or use another SUBJECTS_DIR.\n\e[0m"
+	exit 1
+fi
+if ! ${FREESURFER_HOME}/bin/recon-all -i $path_job/T1_fake.nii.gz -s $SUB_ID -T2 $path_job/T2_fake.nii.gz -noT2pial -autorecon1 -noskullstrip; then
+	if ! grep -q "Talairach failed" "$SUBJECTS_DIR/$SUB_ID/scripts/recon-all.log" 2>/dev/null; then
+		echo -e "\e[0;36m\n[ERROR]... recon-all -autorecon1 failed, and not because of the Talairach check.\n\e[0m"
+		exit 1
+	fi
+	echo -e "\e[0;36m\n[INFO]... recon-all -autorecon1: Talairach check failed on all 3 built-in atlas retries (expected for macaque). Finishing the remaining autorecon1 stages (Nu Intensity Correction, Intensity Normalization) against the last computed transform.\n\e[0m"
+	${FREESURFER_HOME}/bin/recon-all -s $SUB_ID -nuintensitycor -normalization
+fi
 
 # #-------------------------------------------------------- Mask process based on PREEMACS mask
 echo -e "\033[48;5;125m \n [INIT]... CORRECT BRAIN MASK: EDIT MASK TO FS \n\033[0m";
@@ -215,14 +269,14 @@ rm $DIR_bm/info.m
 ${FSLDIR}/bin/fslmaths $DIR_bm/MASK_ATLAS_TO_T1_fake.nii.gz -mul $DIR_bm/T1.nii.gz $DIR_bm/brainmask_fix.nii.gz
 
 ${FREESURFER_HOME}/bin/mri_mask $DIR_bm/brainmask_fix.nii.gz $DIR_bm/T1.nii.gz $DIRm/brainmask.auto.mgz
-${FREESURFER_HOME}/bin/mri_add_xform_to_header -c $SUBJECTS_DIR/$SUB_ID/transforms/talairach.xfm $DIRm/brainmask.auto.mgz $DIRm/brainmask.auto.mgz
+${FREESURFER_HOME}/bin/mri_add_xform_to_header -c $DIRm/transforms/talairach.xfm $DIRm/brainmask.auto.mgz $DIRm/brainmask.auto.mgz
 cp $DIRm/brainmask.auto.mgz $DIRm/brainmask.mgz
 # #------------------------------------------------------- Register to FS Atlas
 
-${FREESURFER_HOME}/bin/mri_em_register -rusage $DIR/touch/rusage.mri_em_register.dat -uns 3 -mask $DIRm/brainmask.mgz $DIRm/nu.mgz /home/inb/lconcha/fmrilab_software/freesurfer_6.0//average/RB_all_2016-05-10.vc700.gca $DIRm/transforms/talairach.lta
-${FREESURFER_HOME}/bin/mri_ca_normalize -c $DIRm/ctrl_pts.mgz -mask $DIRm/brainmask.mgz $DIRm/nu.mgz /home/inb/lconcha/fmrilab_software/freesurfer_6.0//average/RB_all_2016-05-10.vc700.gca $DIRm/transforms/talairach.lta $DIRm/norm.mgz
-${FREESURFER_HOME}/bin/mri_ca_register -rusage $DIR/touch/rusage.mri_ca_register.dat -nobigventricles -T $DIRm/transforms/talairach.lta -align-after -mask $DIRm/brainmask.mgz $DIRm/norm.mgz /home/inb/lconcha/fmrilab_software/freesurfer_6.0//average/RB_all_2016-05-10.vc700.gca $DIRm/transforms/talairach.m3z
-${FREESURFER_HOME}/bin/mri_ca_label -relabel_unlikely 9 .3 -prior 0.5 -align $DIRm/norm.mgz $DIRm/transforms/talairach.m3z /home/inb/lconcha/fmrilab_software/freesurfer_6.0//average/RB_all_2016-05-10.vc700.gca $DIRm/aseg.auto_noCCseg.mgz
+${FREESURFER_HOME}/bin/mri_em_register -rusage $DIR/touch/rusage.mri_em_register.dat -uns 3 -mask $DIRm/brainmask.mgz $DIRm/nu.mgz ${FREESURFER_HOME}/average/RB_all_2016-05-10.vc700.gca $DIRm/transforms/talairach.lta
+${FREESURFER_HOME}/bin/mri_ca_normalize -c $DIRm/ctrl_pts.mgz -mask $DIRm/brainmask.mgz $DIRm/nu.mgz ${FREESURFER_HOME}/average/RB_all_2016-05-10.vc700.gca $DIRm/transforms/talairach.lta $DIRm/norm.mgz
+${FREESURFER_HOME}/bin/mri_ca_register -rusage $DIR/touch/rusage.mri_ca_register.dat -nobigventricles -T $DIRm/transforms/talairach.lta -align-after -mask $DIRm/brainmask.mgz $DIRm/norm.mgz ${FREESURFER_HOME}/average/RB_all_2016-05-10.vc700.gca $DIRm/transforms/talairach.m3z
+${FREESURFER_HOME}/bin/mri_ca_label -relabel_unlikely 9 .3 -prior 0.5 -align $DIRm/norm.mgz $DIRm/transforms/talairach.m3z ${FREESURFER_HOME}/average/RB_all_2016-05-10.vc700.gca $DIRm/aseg.auto_noCCseg.mgz
 ${FREESURFER_HOME}/bin/mri_cc -aseg aseg.auto_noCCseg.mgz -o aseg.auto.mgz -lta $DIR/mri/transforms/cc_up.lta $SUB_ID
 cp $DIRm/aseg.auto.mgz $DIRm/aseg.presurf.mgz
 ${FREESURFER_HOME}/bin/mri_normalize -mprage -aseg $DIRm/aseg.presurf.mgz -mask $DIRm/brainmask.mgz $DIRm/norm.mgz $DIRm/brain.mgz
@@ -276,7 +330,14 @@ cp $DIRm/brain.mgz $DIRm/brain.finalsurfs.mgz
 ${FREESURFER_HOME}/bin/mri_segment -mprage $DIRm/brain.mgz $DIRm/wm.seg.mgz
 ${FREESURFER_HOME}/bin/mri_edit_wm_with_aseg -keep-in $DIRm/wm.seg.mgz $DIRm/brain.mgz $DIRm/aseg.presurf.mgz $DIRm/wm.asegedit.mgz
 ${FREESURFER_HOME}/bin/mri_pretess $DIRm/wm.asegedit.mgz wm $DIRm/norm.mgz $DIRm/wm.mgz
-${FREESURFER_HOME}/bin/mri_fill -a $DIR/scripts/ponscc.cut.log -xform $DIRm/transforms/talairach.lta -segmentation $DIRm/aseg.auto_noCCseg.mgz $DIRm/wm.mgz $DIRm/filled.mgz
+# mri_fill's default corpus callosum seed comes from the Talairach transform, which is poor for
+# a macaque brain scaled into human space: here it landed 12 voxels off the midline, giving a
+# 5606 mm2 "cutting plane" (limit 1400) and, in FreeSurfer 7.4.1, a double-free crash inside
+# mri_fill's fallback search (deterministic; disabling glibc's check does not help). Seed it
+# from the corpus callosum that mri_cc already labelled (aseg labels 251-255) instead.
+CC_SEED=$(/opt/venvs/mriqc/bin/python3 $scripts_path/cc_seed.py $DIRm/aseg.presurf_orig.mgz)
+echo "mri_fill corpus callosum seed (voxel): $CC_SEED"
+${FREESURFER_HOME}/bin/mri_fill -a $DIR/scripts/ponscc.cut.log -xform $DIRm/transforms/talairach.lta -segmentation $DIRm/aseg.auto_noCCseg.mgz -CV $CC_SEED $DIRm/wm.mgz $DIRm/filled.mgz
 
 ##---------------------------------------------------------Filling subcortical structures
 mask_for_bg=$templates_path/gb_mod.nii.gz
@@ -459,7 +520,7 @@ ${FREESURFER_HOME}/bin/mri_pretess $DIRm/wm.asegedit.mgz wm $DIRm/norm.mgz $DIRm
 
 #-----------------------------------------------------Fill
 
-${FREESURFER_HOME}/bin/mri_fill -a $DIR/scripts/ponscc.cut.log -xform $DIRm/transforms/talairach.lta -segmentation $DIRm/aseg.auto_noCCseg.mgz $DIRm/wm.mgz $DIRm/filled.mgz
+${FREESURFER_HOME}/bin/mri_fill -a $DIR/scripts/ponscc.cut.log -xform $DIRm/transforms/talairach.lta -segmentation $DIRm/aseg.auto_noCCseg.mgz -CV $CC_SEED $DIRm/wm.mgz $DIRm/filled.mgz
 
 #-----------------------------------------------------Tessellate lh
 
@@ -584,7 +645,10 @@ ${FREESURFER_HOME}/bin/mrisp_paint -a 5 $templates_path/rh.PREEMACS_34_v1.tif#6 
 
 ${FREESURFER_HOME}/bin/mris_ca_label -l $DIR/label/lh.cortex.label -aseg $DIR/mri/aseg.presurf.mgz -seed 1234 $SUB_ID lh $DIRs/lh.sphere.reg ${FREESURFER_HOME}/average/lh.DKaparc.atlas.acfb40.noaparc.i12.2016-08-02.gcs $DIR/label/lh.aparc.annot
 
-${FREESURFER_HOME}/bin/mris_ca_label -l $DIR/label/rh.cortex.label -aseg $DIR/mri/aseg.presurf.mgz -seed 1234 $SUB_ID rh $DIRs/rh.sphere.reg ${FREESURFER_HOME}/average/lh.DKaparc.atlas.acfb40.noaparc.i12.2016-08-02.gcs $DIR/label/rh.aparc.annot
+# rh surface needs the rh classifier (this used lh.DKaparc...): with the lh one only 30% of rh
+# vertices get the same label as with rh.DKaparc..., with systematic swaps (e.g. inferiorparietal
+# <-> superiorparietal, precentral -> superiorfrontal).
+${FREESURFER_HOME}/bin/mris_ca_label -l $DIR/label/rh.cortex.label -aseg $DIR/mri/aseg.presurf.mgz -seed 1234 $SUB_ID rh $DIRs/rh.sphere.reg ${FREESURFER_HOME}/average/rh.DKaparc.atlas.acfb40.noaparc.i12.2016-08-02.gcs $DIR/label/rh.aparc.annot
 
 #----------------------------------------------------------Make Pial Surf
 ${FREESURFER_HOME}/bin/mri_convert $DIRm/brain.finalsurfs.mgz $ETOOL/brain.finalsurfs.nii.gz
@@ -637,7 +701,6 @@ mv $DIR/mri/ribbon.mgz  $ETOOL/ribbon_sin_T2.mgz
 
 # # # ##################### T2 PIAL SURFACE WITH KISS ERROR ###################
 
-cp $DIR/mri/orig/T2raw.mgz $DIR/mri/orig/T2raw.mgz #NO_TEMPLATE
 ${FREESURFER_HOME}/bin/mri_convert $DIR/mri/orig/T2raw.mgz $DIR/mri/orig/T2raw.nii.gz
 ${minc_path}/mincnlm_nii.sh $DIR/mri/orig/T2raw.nii.gz  $DIR/mri/orig/T2raw_deno.nii.gz
 ${FREESURFER_HOME}/bin/mri_convert $DIR/mri/orig/T2raw_deno.nii.gz $DIR/mri/orig/T2raw.mgz

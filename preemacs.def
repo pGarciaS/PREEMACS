@@ -1,0 +1,475 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Pipeline            PREEMACS (macaque MRI preprocessing / surface extraction)
+    FSL_Version         6.0.4
+    FreeSurfer_Version  7.4.1
+    ANTs_Version        2.4.4
+    MRtrix_Version      3.0.4
+    AFNI_Version        latest linux_openmp_64 (afni, 3dFWHMx only)
+    Octave_Version      6.4.0 (Ubuntu jammy apt)
+    MINC_Version        1.9.18 (mincnlm binary only, extracted from official .deb)
+
+%help
+    PREEMACS container. Full walkthrough (build instructions, example binds per
+    module, output layout) is in this repo's README.md -- this is a quick reference.
+    Tool versions: `apptainer inspect preemacs.sif` (FSL/FreeSurfer/ANTs/MRtrix3/
+    AFNI/MINC/Octave are all pinned; see %labels). Each app also takes -h/-help
+    for its own full option list (e.g. M1's -mc/-mcc/-sphinx/-av_FS).
+
+    Run individual modules via --app, in this order (each needs the previous one's output):
+      apptainer run --app M1     preemacs.sif -id SUB01 -t1_path <dir> -t2_path <dir> -out_path /data/out
+      apptainer run --app BM     preemacs.sif SUB01 /data/out
+      apptainer run --app generateN4 preemacs.sif -dataDir /data/out -maskDir /data/out -id SUB01 -outDir /data/out/N4
+      apptainer run --app MRIQC  preemacs.sif -dataDir /data/out -templateDir /opt/preemacs/templates -n4dir /data/out/N4 -id SUB01
+      apptainer run --app M3     preemacs.sif SUB01 /data/out
+
+    M1's -t1_path/-t2_path are DIRECTORIES: every *.nii.gz inside is treated as
+    a separate run of that modality and averaged together (one file per dir if
+    you only have a single run). generateN4 and MRIQC both run on M1's
+    conformed T1 (-dataDir is the same -out_path used for M1/BM, not a raw
+    BIDS directory).
+
+    MRIQC's spatial-normalization/segmentation step consumes 6 templates
+    (NMT_brain_template, NMT_brain_mask, NMT_segmentation_{CSF,GM,WM},
+    NMT_head_mask) resampled to the same 0.5mm grid as NMT_brain_05.nii.gz.
+    5 of these are the official NMT v1.3 distribution's own files, just
+    renamed to match this codebase's naming (NMT_SS->NMT_brain_template,
+    NMT_brainmask->NMT_brain_mask, the 3 segmentation maps unchanged);
+    NMT_head_mask is this project's own derivation (threshold+fill of the
+    official NMT.nii.gz), not an official NMT file. If you use MRIQC's
+    output, cite: Seidlitz et al., "A population MRI brain template and
+    analysis tools for the macaque", NeuroImage (2017), doi:10.1101/105874.
+
+    Required at runtime (FreeSurfer license CANNOT be bundled -- no redistribution rights):
+      --bind /path/to/license.txt:/opt/freesurfer/license.txt
+      --env SUBJECTS_DIR=/data/fs    (M3 only; it is never set internally. Must NOT be the same
+                                      folder as out_path: recon-all refuses to start on a subject
+                                      folder that already exists, and out_path/SUB_ID always does.)
+      --bind /path/to/freesurfer_subjects:/data/fs   (M3 only; writable, FreeSurfer's own output tree)
+      --bind /path/to/bids:/data/bids
+      --bind /path/to/outputs:/data/out
+
+    Interactive-only flags (-mc / -mcc / -qc_LR on M1.sh) open fslview and read stdin --
+    only usable with `apptainer shell`, not headless/batch runs.
+
+    Example:
+      apptainer run --app M1 preemacs.sif \
+        -id SUB01 -t1_path /data/bids/sub-01/anat -t2_path /data/bids/sub-01/anat -out_path /data/out
+
+%setup
+    # Runs on the HOST (not chrooted), before %files/%post. Stages locally
+    # cached downloads into the build's rootfs if present, so repeat
+    # `--fakeroot` build attempts don't re-download large/flaky files every
+    # time (there is no build caching between attempts otherwise). Each one
+    # falls back to a plain wget/cmake-download in %post if its cache entry
+    # is absent -- safe for anyone building without this cache dir populated.
+    # NOTE: staged under /opt, not /tmp -- apptainer.conf on this host has
+    # "mount tmp = yes", which bind-mounts a fresh tmpfs over /tmp right as
+    # %post starts, silently shadowing anything %setup put there. /opt isn't
+    # remounted, so it survives into %post.
+    CACHE_DIR=/misc/lauterbur2/lconcha/code/PREEMACS/container/cache
+    mkdir -p "$SINGULARITY_ROOTFS/opt/_build_cache"
+    for f in fsl-6.0.4-centos7_64.tar.gz \
+             freesurfer-linux-ubuntu22_amd64-7.4.1.tar.gz \
+             minc-toolkit-1.9.18-20200813-Ubuntu_20.04-x86_64.deb \
+             linux_openmp_64.tgz; do
+        if [ -f "$CACHE_DIR/$f" ]; then
+            cp "$CACHE_DIR/$f" "$SINGULARITY_ROOTFS/opt/_build_cache/$f"
+        fi
+    done
+
+%files
+    Modules              /opt/preemacs/Modules
+    scripts               /opt/preemacs/scripts
+    monkey_deepbrain       /opt/preemacs/monkey_deepbrain
+    templates              /opt/preemacs/templates
+    PREEMACS_TEMPLATES     /opt/preemacs/PREEMACS_TEMPLATES
+    container/bin          /opt/preemacs/container/bin
+    # Deliberately NOT copied (QC/training data only, unused by any pipeline step):
+    #   100_manual_mask_PRIME-DE/, 26_manual_mask/
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+
+    ## ---------- Stage 0: base OS packages ----------
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        build-essential cmake git wget curl unzip ca-certificates file \
+        python3 python3-pip python3-venv python3-dev python-is-python3 \
+        octave \
+        libgl1 libglu1-mesa libxt6 libxrender1 libxrandr2 libxfixes3 libxcursor1 \
+        libxinerama1 libsm6 libice6 \
+        zlib1g-dev libpng-dev libtiff-dev libtiff5-dev bzip2 tcsh perl dc bc libgomp1 \
+        libeigen3-dev libqt5opengl5-dev libqt5svg5-dev libgl1-mesa-dev libfftw3-dev
+    rm -rf /var/lib/apt/lists/*
+
+    ## ---------- Stage 1: FSL 6.0.4 ----------
+    # NOTE: pathFile.sh's comment said "tested with version 6.0.4.1", but that
+    # version was never actually released by FSL (confirmed directly against the
+    # installer's own manifest via `fslinstaller.py -l`, which lists 6.0.4, 6.0.5,
+    # 6.0.5.1, 6.0.5.2, etc. -- no 6.0.4.1). Decision: use 6.0.4, the closest real
+    # release to the documented intent.
+    cd /tmp
+    wget -q https://git.fmrib.ox.ac.uk/fsl/installer/-/raw/3.3.0/fslinstaller.py
+    # %setup stages a pre-downloaded archive in from container/cache/ on the
+    # host when present (see %setup above) to avoid re-downloading ~4GB on
+    # every build retry -- the installer supports this directly via -f/-C
+    # (install a pre-downloaded archive + its checksum).
+    # PREEMACS only ever calls FSL's core C++ binaries (fslmaths, fslreorient2std,
+    # etc.), never fslpython -- so the installer's optional bundled-Miniconda
+    # post-install step is irrelevant to us, but its failure mode is
+    # inconsistent: usually it fails non-fatally ("Failed to create FSL Python
+    # environment", installer continues and exits 0), but occasionally the
+    # Miniconda install itself succeeds and then a later `conda install`
+    # step hits Anaconda's non-interactive Terms-of-Service gate for the
+    # default channels (CondaToSNonInteractiveError) -- which the installer
+    # does NOT catch, exiting non-zero and killing the whole build under
+    # `set -e` despite the core FSL binaries already being fully installed
+    # by that point. `|| true` plus an explicit sanity check on a real
+    # binary (fslmaths) affords tolerance for the Python-environment quirk
+    # without masking a genuine failure of the actual install.
+    if [ -f /opt/_build_cache/fsl-6.0.4-centos7_64.tar.gz ]; then
+        python3 fslinstaller.py -d /usr/local/fsl \
+            -f /opt/_build_cache/fsl-6.0.4-centos7_64.tar.gz \
+            -T sha256 -C 99d4a93c7ce01c355d919b5f80e3d1ffe7e50ccec6ff0bb10cfce4d1255e7916 || true
+    else
+        python3 fslinstaller.py -d /usr/local/fsl -V 6.0.4 || true
+    fi
+    test -x /usr/local/fsl/bin/fslmaths
+    rm fslinstaller.py
+
+    ## ---------- Stage 1b: fix FSL's own broken fslpython post-install ----------
+    # fslinstaller.py's post-install step (which shells out to
+    # etc/fslconf/fslpython_install.sh) fails here every time with "Failed to
+    # create FSL Python environment" -- but non-fatally, so the build
+    # otherwise silently continues with an empty $FSLDIR/fslpython and no
+    # imcp/imglob/remove_ext/etc. (fslpy's conda package post-link step never
+    # runs). Root-caused by hand (see container/README or session notes):
+    #   1. FSL's classic-conda solve on fslpython_environment.yml effectively
+    #      never terminates (observed 90+ min, still climbing past 16GB RSS,
+    #      no sign of convergence) -- a known failure mode for old conda
+    #      environment files. Fix: install conda-libmamba-solver into the base
+    #      env first and set it as the active solver (same env solved in ~4-5
+    #      minutes with it).
+    #   2. Separately, the yml's one pip dependency (nidmfsl, for FSL FEAT/
+    #      NIDM-results export -- PREEMACS never touches FSL's fMRI stats
+    #      tools) has bit-rotted: its own dependency chain now pulls a
+    #      `requests` version requiring Python >=3.8, incompatible with this
+    #      env's pinned python=3.7.6. Fix: drop it from a local copy of the
+    #      yml before creating the env.
+    #   3. Also pass an explicit `-p` prefix to `conda env create` -- defensive
+    #      only, guards against any inherited condarc (e.g. via a stray
+    #      envs_dirs setting) redirecting the environment somewhere outside
+    #      $FSLDIR at build time.
+    MC_ROOT=/usr/local/fsl/fslpython
+    rm -rf "$MC_ROOT"
+    cd /tmp
+    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda_installer.sh
+    bash miniconda_installer.sh -b -p "$MC_ROOT"
+    rm miniconda_installer.sh
+
+    "$MC_ROOT/bin/conda" config --file "$MC_ROOT/.condarc" --set remote_read_timeout_secs 240
+    "$MC_ROOT/bin/conda" config --file "$MC_ROOT/.condarc" --set remote_connect_timeout_secs 20
+    "$MC_ROOT/bin/conda" config --file "$MC_ROOT/.condarc" --set remote_max_retries 10
+    "$MC_ROOT/bin/conda" config --file "$MC_ROOT/.condarc" --set remote_backoff_factor 5
+    "$MC_ROOT/bin/conda" config --file "$MC_ROOT/.condarc" --set safety_checks warn
+    "$MC_ROOT/bin/conda" config --file "$MC_ROOT/.condarc" --set channel_priority strict
+    "$MC_ROOT/bin/conda" config --file "$MC_ROOT/.condarc" --add channels conda-forge
+    "$MC_ROOT/bin/conda" config --file "$MC_ROOT/.condarc" --append channels https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel
+
+    # Recent conda releases gate non-interactive installs from Anaconda's
+    # default channels behind Terms-of-Service acceptance
+    # (CondaToSNonInteractiveError) -- pre-accept both non-interactively
+    # before the first real `conda install`, per the error message's own
+    # suggested fix.
+    "$MC_ROOT/bin/conda" tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+    "$MC_ROOT/bin/conda" tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+
+    "$MC_ROOT/bin/conda" install -n base -y conda-libmamba-solver
+    "$MC_ROOT/bin/conda" config --file "$MC_ROOT/.condarc" --set solver libmamba
+
+    sed '/^\s*-\s*nidmfsl\s*$/d; /^\s*pip:\s*$/d' \
+        /usr/local/fsl/etc/fslconf/fslpython_environment.yml > /tmp/fslpython_environment_fixed.yml
+    FSLDIR=/usr/local/fsl "$MC_ROOT/bin/conda" env create -v \
+        -p "$MC_ROOT/envs/fslpython" -f /tmp/fslpython_environment_fixed.yml
+    rm /tmp/fslpython_environment_fixed.yml
+
+    ln -sf "$MC_ROOT/envs/fslpython/bin/python" /usr/local/fsl/bin/fslpython
+    [ -e "$MC_ROOT/envs/fslpython/bin/ipython" ] && \
+        ln -sf "$MC_ROOT/envs/fslpython/bin/ipython" /usr/local/fsl/bin/fslipython
+    if [ -e "$MC_ROOT/envs/fslpython/bin/pythonw" ]; then
+        ln -sf "$MC_ROOT/envs/fslpython/bin/pythonw" /usr/local/fsl/bin/fslpythonw
+    else
+        ln -sf "$MC_ROOT/envs/fslpython/bin/python" /usr/local/fsl/bin/fslpythonw
+    fi
+    # imcp/imglob/remove_ext/etc. come from fslpy's own conda post-link script,
+    # which runs automatically during `conda env create` above (with FSLDIR set)
+    # -- no separate action needed, just verifying it landed:
+    [ -e /usr/local/fsl/bin/imcp ] || echo "WARNING: imcp still missing after fslpython fix -- fslpy's post-link step didn't run as expected" >&2
+
+    ## ---------- Stage 2: FreeSurfer 7.4.1 ----------
+    cd /tmp
+    # %setup stages this in from container/cache/ on the host when present
+    # (see %setup above) to avoid re-downloading 8.9GB on every build retry.
+    if [ -f /opt/_build_cache/freesurfer-linux-ubuntu22_amd64-7.4.1.tar.gz ]; then
+        cp /opt/_build_cache/freesurfer-linux-ubuntu22_amd64-7.4.1.tar.gz freesurfer-linux-ubuntu22_amd64-7.4.1.tar.gz
+    else
+        wget -q https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/7.4.1/freesurfer-linux-ubuntu22_amd64-7.4.1.tar.gz
+    fi
+    tar -xzf freesurfer-linux-ubuntu22_amd64-7.4.1.tar.gz -C /opt
+    rm freesurfer-linux-ubuntu22_amd64-7.4.1.tar.gz
+    # No license.txt baked in on purpose -- must be bind-mounted at runtime (see %help).
+    if [ ! -f /opt/freesurfer/average/RB_all_2016-05-10.vc700.gca ]; then
+        echo "WARNING: RB_all_2016-05-10.vc700.gca missing from FS 7.4.1 average/ -- extract it from an FS6 tarball's average/ dir (same license, redistribution within the image is fine) into /opt/freesurfer/average/ before proceeding." >&2
+    fi
+
+    ## ---------- Stage 3: ANTs 2.4.4 (official prebuilt binary, ubuntu-22.04 build) ----------
+    cd /tmp
+    wget -q https://github.com/ANTsX/ANTs/releases/download/v2.4.4/ants-2.4.4-ubuntu-22.04-X64-gcc.zip
+    unzip -q ants-2.4.4-ubuntu-22.04-X64-gcc.zip -d /opt
+    mv /opt/ants-2.4.4 /opt/ants
+    rm ants-2.4.4-ubuntu-22.04-X64-gcc.zip
+    chmod -R a+rx /opt/ants/bin
+
+    ## ---------- Stage 3b: AFNI (linux_openmp_64 prebuilt, binary allowlist) ----------
+    # MRIQC's anatomical smoothness IQM calls AFNI's `3dFWHMx`
+    # (mriqc/workflows/utils.py:get_fwhmx()), which also runs `afni --version`
+    # to version-gate its args (nipype.interfaces.afni.base.Info.version_cmd
+    # == "afni --version"). Confirmed by grepping every mriqc/*.py file for
+    # afni/3d*-tool usage that this vendored anatomical workflow actually
+    # reaches: skull-stripping is NOT one of them -- `asw` in anatomical.py
+    # is a DataGrabber over generateN4.sh's own outputs, not niworkflows'
+    # afni_wf (that import is present but unused/commented out). So only
+    # these two binaries are needed, following nipreps/mriqc's own Dockerfile
+    # (github.com/nipreps/mriqc/blob/master/Dockerfile), which prunes the
+    # same ~3GB linux_openmp_64 distribution down to a fixed allowlist.
+    cd /tmp
+    mkdir -p afni_extract
+    # %setup stages this in from container/cache/ on the host when present
+    # (see %setup above) -- afni.nimh.nih.gov is very slow from this host
+    # (observed ~180KB/s, nearly an hour for the ~2GB+ tarball), so this
+    # cache entry matters more than the FSL/FreeSurfer ones despite being a
+    # smaller file.
+    if [ -f /opt/_build_cache/linux_openmp_64.tgz ]; then
+        tar -xzf /opt/_build_cache/linux_openmp_64.tgz -C afni_extract --strip-components 1 \
+            linux_openmp_64/afni linux_openmp_64/3dFWHMx
+    else
+        curl -fsSL --retry 5 https://afni.nimh.nih.gov/pub/dist/tgz/linux_openmp_64.tgz \
+            | tar -xz -C afni_extract --strip-components 1 \
+                linux_openmp_64/afni linux_openmp_64/3dFWHMx
+    fi
+    mkdir -p /opt/afni
+    mv afni_extract/afni afni_extract/3dFWHMx /opt/afni/
+    chmod +x /opt/afni/afni /opt/afni/3dFWHMx
+    rm -rf afni_extract
+
+    # Runtime libs `afni`/`3dFWHMx` need that jammy's base image lacks
+    # (confirmed via `ldd` inside a running build of this same image).
+    # libxpm4/libxmu6 are ordinary jammy universe packages. libxp6 and
+    # libpng12-0 were dropped from Ubuntu's own repos years ago (jammy's
+    # apt-cache has no entry for either) -- pull their .deb directly from the
+    # same PPAs nipreps/mriqc's own Dockerfile uses for this exact problem
+    # (zeehio/libxp, linuxuprising/libpng12), extracting just the .so like
+    # Stage 5's mincnlm pattern below, rather than registering a whole PPA +
+    # apt-key just for one library file each.
+    apt-get update
+    apt-get install -y --no-install-recommends libxpm4 libxmu6
+    rm -rf /var/lib/apt/lists/*
+
+    cd /tmp
+    wget -q http://ppa.launchpad.net/zeehio/libxp/ubuntu/pool/main/libx/libxp/libxp6_1.0.2-2ubuntu1~22.04_amd64.deb
+    dpkg-deb -x libxp6_1.0.2-2ubuntu1~22.04_amd64.deb libxp_extract
+    cp -P libxp_extract/usr/lib/x86_64-linux-gnu/libXp.so* /usr/lib/x86_64-linux-gnu/
+    rm -rf libxp_extract libxp6_1.0.2-2ubuntu1~22.04_amd64.deb
+
+    wget -q "http://ppa.launchpad.net/linuxuprising/libpng12/ubuntu/pool/main/libp/libpng/libpng12-0_1.2.54-1ubuntu1.1+1~ppa0~jammy0_amd64.deb"
+    dpkg-deb -x "libpng12-0_1.2.54-1ubuntu1.1+1~ppa0~jammy0_amd64.deb" libpng12_extract
+    cp -P libpng12_extract/usr/lib/x86_64-linux-gnu/libpng12.so* /usr/lib/x86_64-linux-gnu/
+    rm -rf libpng12_extract "libpng12-0_1.2.54-1ubuntu1.1+1~ppa0~jammy0_amd64.deb"
+
+    ldconfig
+
+    ## ---------- Stage 4: MRtrix3 3.0.4 (source build, tag-pinned) ----------
+    cd /opt
+    git clone https://github.com/MRtrix3/mrtrix3.git
+    cd mrtrix3
+    git checkout 3.0.4
+    ./configure -nogui
+    # Cap parallelism at 70% of cores -- a full -j$(nproc) build noticeably
+    # lags the host's desktop during compilation (user-reported).
+    export NUMBER_OF_PROCESSORS=$(( $(nproc) * 7 / 10 ))
+    ./build
+
+    ## ---------- Stage 5: mincnlm (single binary extracted from the official
+    ## prebuilt minc-toolkit .deb -- NOT a source build) ----------
+    # PREEMACS calls exactly one minc-toolkit binary anywhere in the pipeline:
+    # `mincnlm` (via scripts/mincnlm_nii.sh, invoked unconditionally by M3.sh
+    # for T2 pial-surface denoising -- confirmed by grepping every *.sh/*.m
+    # file under Modules/ and scripts/ for minc-prefixed commands). An earlier
+    # version of this file source-compiled the entire minc-toolkit-v2 project
+    # just for this one binary, which pulled in OpenBLAS, LAPACKE, FFTW,
+    # HDF5, GSL, NetCDF, ITK, Elastix, and C3D -- and hit five separate
+    # upstream build bugs across those (git history has the abandoned
+    # attempt). No Ubuntu 22.04 (jammy) .deb of minc-toolkit exists (only
+    # 16.04/18.04/20.04 -- confirmed against https://bic-mni.github.io/), but
+    # the official Ubuntu 20.04 .deb's `mincnlm` binary runs fine on jammy:
+    # `ldd` confirms it needs only glibc/libstdc++/libm/libpthread/libgcc_s
+    # (satisfied by jammy's own versions -- glibc keeps backward-compat) plus
+    # 3 small libraries (libminc2, libminc_io, libhdf5) the .deb bundles
+    # alongside it with no external dependencies of their own. Extracting
+    # just those 4 files avoids the entire fragile source build.
+    cd /tmp
+    MINC_DEB=minc-toolkit-1.9.18-20200813-Ubuntu_20.04-x86_64.deb
+    if [ -f /opt/_build_cache/$MINC_DEB ]; then
+        cp /opt/_build_cache/$MINC_DEB .
+    else
+        wget -q https://packages.bic.mni.mcgill.ca/minc-toolkit/Debian/$MINC_DEB
+    fi
+    dpkg-deb -x $MINC_DEB minc_extract
+    mkdir -p /opt/minc/1.9.18/bin /opt/minc/1.9.18/lib
+    cp minc_extract/opt/minc/1.9.18/bin/mincnlm /opt/minc/1.9.18/bin/
+    cp -P minc_extract/opt/minc/1.9.18/lib/libminc2.so* \
+          minc_extract/opt/minc/1.9.18/lib/libminc_io.so* \
+          minc_extract/opt/minc/1.9.18/lib/libhdf5.so* \
+          /opt/minc/1.9.18/lib/
+    chmod +x /opt/minc/1.9.18/bin/mincnlm
+    rm -rf minc_extract $MINC_DEB
+
+    ## ---------- Stage 6: Python envs (two isolated venvs) ----------
+    # mriqc's old nipype~=1.4 / niworkflows~=1.1 pins risk clashing with the
+    # numpy/scikit-image/tensorflow stack monkey_deepbrain needs, so they're kept apart.
+    python3 -m venv /opt/venvs/deepbrain
+    /opt/venvs/deepbrain/bin/pip install --no-cache-dir -U pip
+    /opt/venvs/deepbrain/bin/pip install --no-cache-dir \
+        tensorflow nibabel numpy scikit-image
+
+    python3 -m venv /opt/venvs/mriqc
+    /opt/venvs/mriqc/bin/pip install --no-cache-dir -U pip
+    # scripts/mriqc/setup.cfg pins `niworkflows ~= 1.1`, but PEP 440's
+    # "compatible release" operator means >=1.1,<2.0 -- not "1.1.x only" as
+    # the pin's author likely intended -- so a plain install silently pulled
+    # niworkflows 1.14.4, whose `niworkflows.interfaces.registration` module
+    # (needed by this vendored mriqc's spatial_normalization()) was
+    # reorganized away years after 1.1.x. Pin the exact version this code
+    # was written against (confirmed: 1.1.12 still has
+    # RobustMNINormalizationRPT in that module) before installing mriqc, so
+    # pip finds the constraint already satisfied and doesn't upgrade it.
+    # niworkflows 1.1.12 itself only requires nipype>=1.3.1 (open-ended), so
+    # nipype's own similarly-loose `~=1.4` pin (currently resolving to 1.11.0)
+    # is left alone -- no evidence yet that nipype's API is the problem here.
+    # Same story one level down: nothing here pins numpy, so pip picked
+    # numpy 2.2.6 -- but the nibabel version this stack resolves to (3.2.2,
+    # from 2021) still does `np.sctypes`, removed in NumPy 2.0
+    # ("AttributeError: `np.sctypes` was removed in the NumPy 2.0 release").
+    # Upgrading nibabel instead risks the same kind of API drift as the
+    # niworkflows case above; pinning numpy below 2.0 (numpy 1.26.4, the
+    # final 1.x release) keeps the whole stack in the NumPy-1.x era it was
+    # actually built for.
+    /opt/venvs/mriqc/bin/pip install --no-cache-dir "numpy<2"
+    # Third pin, same drift pattern: nothing pins `traits` either, so pip
+    # picked 7.1.0 -- but niworkflows 1.1.12's own interfaces/mni.py still
+    # does `traits.DictStrAny(...)`, an alias removed from traits' public API
+    # sometime after 6.3.2 ("AttributeError: module 'traits.api' has no
+    # attribute 'DictStrAny'"). Confirmed via `pip download` + grepping
+    # traits/api.py across candidate versions that DictStrAny exists in
+    # 5.2.0 through at least 6.3.2 and is gone by 7.1.0.
+    /opt/venvs/mriqc/bin/pip install --no-cache-dir "traits==6.3.2"
+    # Fourth pin, same drift pattern again: niworkflows' own setup.cfg lists
+    # `svgutils` completely unpinned, so pip picked 0.3.4 -- but niworkflows
+    # 1.1.12's report_base.py calls FigureElement.moveto(x, y, scale=...),
+    # and svgutils renamed that kwarg from `scale` to `scale_x`/`scale_y` in
+    # 0.3.2 ("TypeError: FigureElement.moveto() got an unexpected keyword
+    # argument 'scale'"). Confirmed by diffing svgutils/transform.py's
+    # moveto() signature across 0.3.0-0.3.3 via `pip download`: 0.3.0/0.3.1
+    # still have `scale=`, 0.3.2+ don't. Pin the last version matching
+    # niworkflows 1.1.12's calling convention.
+    /opt/venvs/mriqc/bin/pip install --no-cache-dir "svgutils==0.3.1"
+    /opt/venvs/mriqc/bin/pip install --no-cache-dir niworkflows==1.1.12
+    /opt/venvs/mriqc/bin/pip install --no-cache-dir /opt/preemacs/scripts/mriqc
+    # M2_metrics_clean.py deps -- shares the mriqc venv, no conflict expected
+    /opt/venvs/mriqc/bin/pip install --no-cache-dir pandas numpy nibabel colorama
+
+    ## ---------- Stage 7: vendored Workbench/ffmpeg binaries -- keep as-is, just make executable ----------
+    chmod +x /opt/preemacs/scripts/caretDir/wb_command \
+             /opt/preemacs/scripts/caretDir/wb_import \
+             /opt/preemacs/scripts/caretDir/wb_view \
+             /opt/preemacs/scripts/caretDir/ffmpeg
+
+    ## ---------- Stage 8: in-repo bug fixes applied at build time (no source edits needed) ----------
+    chmod +x /opt/preemacs/scripts/AnatomicalAverage.sh
+    # M3.sh calls this via /opt/preemacs/programs/mincnlm_nii.sh (a symlink to it); it is
+    # mode 644 in the repo, so without this the T2 denoising step dies with 'Permission denied'.
+    chmod +x /opt/preemacs/scripts/mincnlm_nii.sh
+    ln -s AnatomicalAverage.sh /opt/preemacs/scripts/AnatomicalAverage
+    chmod +x /opt/preemacs/monkey_deepbrain/Mdeepbrain-extractor
+
+    ## ---------- Stage 9: minc_path plumbing expected by M3.sh / mincnlm_nii.sh ----------
+    mkdir -p /opt/preemacs/programs
+    ln -s /opt/minc/1.9.18/bin/mincnlm /opt/preemacs/programs/mincnlm
+    ln -s /opt/preemacs/scripts/mincnlm_nii.sh /opt/preemacs/programs/mincnlm_nii.sh
+
+    ## ---------- Stage 10a: standard mount point for runtime data ----------
+    mkdir -p /data
+
+    ## ---------- Stage 10: wrapper scripts ----------
+    install -m 0755 /opt/preemacs/container/bin/matlab    /usr/local/bin/matlab
+    install -m 0755 /opt/preemacs/container/bin/my_do_cmd /usr/local/bin/my_do_cmd
+    ln -s /opt/preemacs/monkey_deepbrain/Mdeepbrain-extractor /usr/local/bin/Mdeepbrain-extractor
+
+    ## ---------- cleanup: host-cache staging dir from %setup, not needed at runtime ----------
+    rm -rf /opt/_build_cache
+
+%environment
+    export FSLDIR=/usr/local/fsl
+    export PATH=${FSLDIR}/bin:${PATH}
+    . ${FSLDIR}/etc/fslconf/fsl.sh
+
+    export FREESURFER_HOME=/opt/freesurfer
+    # SUBJECTS_DIR intentionally NOT set here -- M3.sh reads it directly from the
+    # caller's environment; it must be supplied via --env at runtime, pointed at
+    # a bind-mounted, writable output directory.
+    . ${FREESURFER_HOME}/SetUpFreeSurfer.sh > /dev/null
+
+    export ANTSPATH=/opt/ants/bin/
+    export PATH=${ANTSPATH}:${PATH}
+
+    export PATH=/opt/mrtrix3/bin:${PATH}
+    export MRTRIX_DIR=/opt/mrtrix3/bin
+
+    export PATH=/opt/afni:${PATH}
+
+    # mincnlm's bundled libminc2/libminc_io/libhdf5 (extracted alongside it in
+    # Stage 5, not on the system linker's default search path).
+    export LD_LIBRARY_PATH=/opt/minc/1.9.18/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+
+    export PREEMACS_PATH=/opt/preemacs
+    export CARETDIR=${PREEMACS_PATH}/scripts/caretDir
+
+    export PYTHONPATH=${PREEMACS_PATH}/monkey_deepbrain:${PYTHONPATH:-}
+    export PATH=/opt/venvs/deepbrain/bin:/opt/venvs/mriqc/bin:/usr/local/bin:${PATH}
+
+%apprun M1
+    cd "${PREEMACS_PATH}/Modules"
+    exec ./M1.sh "$@"
+
+%apprun BM
+    cd "${PREEMACS_PATH}/Modules"
+    exec ./BM.sh "$@"
+
+%apprun M3
+    cd "${PREEMACS_PATH}/Modules"
+    exec ./M3.sh "$@"
+
+%apprun MRIQC
+    cd "${PREEMACS_PATH}/Modules"
+    exec ./runMRIQC.sh "$@"
+
+%apprun generateN4
+    cd "${PREEMACS_PATH}/Modules"
+    exec ./generateN4.sh "$@"
+
+%runscript
+    echo "PREEMACS container: use --app {M1,BM,M3,MRIQC,generateN4}. See 'apptainer run-help' or %help."
