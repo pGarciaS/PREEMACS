@@ -6,3 +6,4 @@ scripts/mriqc/build/
 scripts/mriqc/mriqc.egg-info/
 scripts/mriqc/__pycache__/
 **/__pycache__/
+test_*
