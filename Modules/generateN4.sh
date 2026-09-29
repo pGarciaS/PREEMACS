@@ -73,6 +73,7 @@ if [ $# -lt 4 ]
 # "finished executing succesfully" message anyway.
 set -e
 
+mkdir -p "${outputDir}/"
 cd "${outputDir}/"
 
 mkdir -p $subId
