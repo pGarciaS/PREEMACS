@@ -44,6 +44,13 @@ From: ubuntu:22.04
 
     Required at runtime (FreeSurfer license CANNOT be bundled -- no redistribution rights):
       --bind /path/to/license.txt:/opt/freesurfer/license.txt
+      --env FS_LICENSE=/opt/freesurfer/license.txt    (M1/BM/M3 only. Not optional if $FS_LICENSE
+                                      is already set in your own shell -- Apptainer passes host env
+                                      vars through by default, and FreeSurfer prefers $FS_LICENSE
+                                      over the bound file, so a stray host value silently wins and
+                                      points at a path the container can't see, failing with
+                                      "license file not found" even though the --bind above is
+                                      correct.)
       --env SUBJECTS_DIR=/data/fs    (M3 only; it is never set internally. Must NOT be the same
                                       folder as out_path: recon-all refuses to start on a subject
                                       folder that already exists, and out_path/SUB_ID always does.)

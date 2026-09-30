@@ -36,11 +36,13 @@ The build downloads several large files (FreeSurfer ~9GB, FSL ~4GB, AFNI ~1GB) a
 
 ### Before running anything
 
-FreeSurfer requires a free license file, and it cannot be bundled into the image (no redistribution rights). Get one from https://surfer.nmr.mgh.harvard.edu/registration.html and bind it in on every run:
+FreeSurfer requires a free license file, and it cannot be bundled into the image (no redistribution rights). Get one from https://surfer.nmr.mgh.harvard.edu/registration.html and bind it in on every run that touches FreeSurfer (M1, BM, M3):
 
 ```
---bind /path/to/your/license.txt:/opt/freesurfer/license.txt
+--bind /path/to/your/license.txt:/opt/freesurfer/license.txt --env FS_LICENSE=/opt/freesurfer/license.txt
 ```
+
+The `--env` is not optional if `$FS_LICENSE` is already set in your own shell (common, since it's FreeSurfer's own recommended variable name for this) — Apptainer passes host environment variables into the container by default, and FreeSurfer prioritizes `$FS_LICENSE` over the file at `/opt/freesurfer/license.txt`. Without the `--env` override, a pre-existing host `$FS_LICENSE` silently wins and points FreeSurfer at a host-only path it can't see inside the container, failing with a "license file not found" error that has nothing to do with the `--bind` above actually being correct.
 
 ### Running the pipeline
 
@@ -52,13 +54,31 @@ M1  →  BM  →  generateN4  →  MRIQC  →  M3
 
 Each module is a container "app," invoked as `apptainer run --app <APP> preemacs.sif <args>`. All paths below are inside the container — bind your real host directories to `/data/...` as shown.
 
+#### tl;dr :rocket:
+
+`run_full_pipeline.sh` (repo root) runs all five modules in order for you, on the host. This would be similar to a `-recon-all` directive in _freesurfer_'s `recon-all`. 
+
+```bash
+./run_full_pipeline.sh SUB_ID T1_PATH T2_PATH OUTPUT_DIR [FS_LICENSE]
+```
+
+```bash
+./run_full_pipeline.sh sub-01 \
+  /data/raw/sub-01_T1w.nii.gz /data/raw/sub-01_T2w.nii.gz \
+  /data/results/sub-01 ~/licenses/freesurfer_license.txt
+```
+
+`T1_PATH`/`T2_PATH` can be a single file or a directory — including a BIDS `anat/` folder mixing both modalities, which it auto-separates by filename (`*T1w*`/`*T2w*`). Point both at a subject's top-level BIDS folder and add `--all-sessions` to average every run across every session; omit it to only use the one directory you pointed at. Takes 2–3 hours end to end, dominated by `M3`. Run `./run_full_pipeline.sh -h` for the full usage notes and more examples.
+
+The rest of this section covers running each module individually, if you want more control over a single step.
+
 **1. `M1` — orientation, cropping, bias correction, averaging, skull-stripping**
 
 `-t1_path`/`-t2_path` are *directories*: every `.nii.gz` file inside is treated as a separate run of that modality and averaged together (put a single file in each if you only have one run per modality).
 
 ```bash
 apptainer run --app M1 preemacs.sif \
-  --bind /path/to/license.txt:/opt/freesurfer/license.txt \
+  --bind /path/to/license.txt:/opt/freesurfer/license.txt --env FS_LICENSE=/opt/freesurfer/license.txt \
   --bind /path/to/t1_runs:/data/in_t1 \
   --bind /path/to/t2_runs:/data/in_t2 \
   --bind /path/to/outputs:/data/out \
@@ -69,7 +89,7 @@ apptainer run --app M1 preemacs.sif \
 
 ```bash
 apptainer run --app BM preemacs.sif \
-  --bind /path/to/license.txt:/opt/freesurfer/license.txt \
+  --bind /path/to/license.txt:/opt/freesurfer/license.txt --env FS_LICENSE=/opt/freesurfer/license.txt \
   --bind /path/to/outputs:/data/out \
   SUB01 /data/out
 ```
@@ -102,7 +122,7 @@ This is the slowest module (typically 1.5–2 hours). It needs its **own** writa
 
 ```bash
 apptainer run --app M3 preemacs.sif \
-  --bind /path/to/license.txt:/opt/freesurfer/license.txt \
+  --bind /path/to/license.txt:/opt/freesurfer/license.txt --env FS_LICENSE=/opt/freesurfer/license.txt \
   --bind /path/to/outputs:/data/out \
   --bind /path/to/freesurfer_subjects:/data/fs \
   --env SUBJECTS_DIR=/data/fs \
