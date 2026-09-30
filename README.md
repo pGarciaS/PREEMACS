@@ -7,7 +7,9 @@ pipeline for **PRE**processing and **E**xtraction of the **MAC**aque brain **S**
 
 # **Install**
 
-The easiest way to run PREEMACS is the Singularity/Apptainer container described below — it bundles every dependency (FSL, FreeSurfer, ANTs, MRtrix3, AFNI, MINC, Octave, and PREEMACS' own Python environments), so nothing needs to be installed by hand. For a from-source install, review the Wiki.
+:star: **NEW IN SEPT 30, 2026!!** :star:
+
+The easiest way to run PREEMACS is the **Singularity/Apptainer container** described below. It is fantastic, as it bundles every dependency (FSL, FreeSurfer, ANTs, MRtrix3, AFNI, MINC, Octave, and PREEMACS' own Python environments). This way nothing needs to be installed by hand! For a from-source install, review the Wiki.
 
 ## **Singularity / Apptainer Container**
 
@@ -32,7 +34,7 @@ git clone https://github.com/lconcha/PREEMACS.git && cd PREEMACS
 apptainer build --fakeroot preemacs.sif preemacs.def
 ```
 
-The build downloads several large files (FreeSurfer ~9GB, FSL ~4GB, AFNI ~1GB) and takes roughly 35–40 minutes on a typical connection. If you're rebuilding repeatedly, put pre-downloaded copies of those files in `container/cache/` (see `preemacs.def`'s `%setup` section for the exact filenames) — the build picks them up automatically.
+:warning: The build downloads several large files (FreeSurfer ~9GB, FSL ~4GB, AFNI ~1GB) and takes roughly 35–40 minutes on a typical connection. If you're rebuilding repeatedly, put pre-downloaded copies of those files in `container/cache/` (see `preemacs.def`'s `%setup` section for the exact filenames). 💾 The resulting `preemacs.sif` container is around 18 GB!
 
 ### Before running anything
 
@@ -70,7 +72,7 @@ Each module is a container "app," invoked as `apptainer run --app <APP> preemacs
 
 `T1_PATH`/`T2_PATH` can be a single file or a directory — including a BIDS `anat/` folder mixing both modalities, which it auto-separates by filename (`*T1w*`/`*T2w*`). Point both at a subject's top-level BIDS folder and add `--all-sessions` to average every run across every session; omit it to only use the one directory you pointed at. Takes 2–3 hours end to end, dominated by `M3`. Run `./run_full_pipeline.sh -h` for the full usage notes and more examples.
 
-The rest of this section covers running each module individually, if you want more control over a single step.
+:information_source: The rest of this section covers running each module individually, if you want more control over a single step.
 
 **1. `M1` — orientation, cropping, bias correction, averaging, skull-stripping**
 
