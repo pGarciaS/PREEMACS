@@ -34,14 +34,24 @@ function image_crop=crop_only_brain_3(path_job,nii,outname)
         axis_z_start=round((Z_dim/2)+center_image(1,3));
         axis_z_end=round(center_image(1,3)-(Z_dim/2));
 
+        %%% MRtrix3 >=3.0 folded 'mrcrop' into 'mrgrid ... crop', which takes
+        %%% a different -axis convention: mrcrop took an absolute [start,end]
+        %%% voxel range to KEEP; mrgrid takes [voxels_to_remove_from_lower,
+        %%% voxels_to_remove_from_upper]. Converting here so downstream code
+        %%% (and M1.sh's mrgrid call) can stay a straight port of the old
+        %%% mrcrop call sites.
+        crop_lower_x=axis_x_end;
+        crop_upper_x=fov_size(1,1)-1-axis_x_start;
+        crop_lower_y=axis_y_end;
+        crop_upper_y=fov_size(1,2)-1-axis_y_start;
+        crop_lower_z=axis_z_end;
+        crop_upper_z=fov_size(1,3)-1-axis_z_start;
+
 
         if  axis_x_end <= 0 || axis_x_start >= fov_size (1,1)
             if axis_y_end > 0
-                axis_y=[axis_y_end,axis_y_start];
-                axis_z=[axis_z_end,axis_z_start];
-
-                axis_y=num2str(axis_y);
-                axis_z=num2str(axis_z);
+                axis_y=[sprintf('%d,%d',crop_lower_y,crop_upper_y)];
+                axis_z=[sprintf('%d,%d',crop_lower_z,crop_upper_z)];
 
                 image_crop=['-axis 1 ', axis_y];
                 image_crop=[image_crop,' -axis 2 ',axis_z];
@@ -52,13 +62,9 @@ function image_crop=crop_only_brain_3(path_job,nii,outname)
             
         if axis_x_end > 0 && axis_x_start < fov_size (1,1)
             if axis_y_end > 0
-               axis_x=[axis_x_end,axis_x_start];
-               axis_y=[axis_y_end,axis_y_start];
-               axis_z=[axis_z_end,axis_z_start];
-
-               axis_x=num2str(axis_x);
-               axis_y=num2str(axis_y);
-               axis_z=num2str(axis_z);
+               axis_x=[sprintf('%d,%d',crop_lower_x,crop_upper_x)];
+               axis_y=[sprintf('%d,%d',crop_lower_y,crop_upper_y)];
+               axis_z=[sprintf('%d,%d',crop_lower_z,crop_upper_z)];
 
                image_crop=['-axis 0 ',axis_x ];
                image_crop=[image_crop,' -axis 1 ', axis_y];
@@ -70,11 +76,8 @@ function image_crop=crop_only_brain_3(path_job,nii,outname)
         
         if  axis_z_end <= 0 || axis_z_start >= fov_size (1,3)
             if axis_y_end > 0
-               axis_x=[axis_x_end,axis_x_start];
-               axis_y=[axis_y_end,axis_y_start];
-
-               axis_x=num2str(axis_x);
-               axis_y=num2str(axis_y);
+               axis_x=[sprintf('%d,%d',crop_lower_x,crop_upper_x)];
+               axis_y=[sprintf('%d,%d',crop_lower_y,crop_upper_y)];
 
                image_crop=['-axis 0 ', axis_x];
                image_crop=[image_crop,' -axis 1 ',axis_y];
@@ -86,9 +89,8 @@ function image_crop=crop_only_brain_3(path_job,nii,outname)
         if axis_x_end <= 0 || axis_x_start >= fov_size (1,1)
             if axis_y_end > 0
                  if axis_z_end <= 0 || axis_z_start >= fov_size (1,3)
-                    axis_y=[axis_y_end,axis_y_start];
-                    
-                    axis_y=num2str(axis_y);
+                    axis_y=[sprintf('%d,%d',crop_lower_y,crop_upper_y)];
+
                     image_crop=['-axis 1 ', axis_y];
                     s=''''
                     eval([ 'dlmwrite(' s crop_out s ',image_crop,' s 'delimiter' s ',' s '' '' s ')' ])
@@ -98,9 +100,8 @@ function image_crop=crop_only_brain_3(path_job,nii,outname)
         
         if axis_y_end <= 0 || axis_y_start >= fov_size (1,2)
                if axis_x_end <= 0 || axis_x_start >= fov_size (1,1)
-                    axis_z=[axis_z_end,axis_z_start];
-                    
-                    axis_z=num2str(axis_z);
+                    axis_z=[sprintf('%d,%d',crop_lower_z,crop_upper_z)];
+
                     image_crop=['-axis 2 ', axis_z];
                     s=''''
                     eval([ 'dlmwrite(' s crop_out s ',image_crop,' s 'delimiter' s ',' s '' '' s ')' ])
@@ -108,17 +109,11 @@ function image_crop=crop_only_brain_3(path_job,nii,outname)
         end
         
         if axis_x_end <= 0 && axis_y_end <= 0 && axis_z_end <= 0
-               fov_size(1,1)=fov_size(1,1)-1;
-               fov_size(1,2)=fov_size(1,2)-1;
-               fov_size(1,3)=fov_size(1,3)-1;
-
-               axis_x=[0,(fov_size(1,1)-1)];
-               axis_y=[0,fov_size(1,2)];
-               axis_z=[0,fov_size(1,3)];
-
-               axis_x=num2str(axis_x);
-               axis_y=num2str(axis_y);
-               axis_z=num2str(axis_z);
+               % Target crop size exceeds the FOV on every axis -- keep the
+               % whole image (mrgrid: remove 0 voxels from each end).
+               axis_x=[sprintf('%d,%d',0,0)];
+               axis_y=[sprintf('%d,%d',0,0)];
+               axis_z=[sprintf('%d,%d',0,0)];
 
                image_crop=['-axis 0 ', axis_x]
                image_crop=[image_crop,' -axis 1 ',axis_y];

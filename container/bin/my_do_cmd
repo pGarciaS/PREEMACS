@@ -1,0 +1,9 @@
+#!/bin/bash
+# Minimal replacement for the missing my_do_cmd helper expected by
+# scripts/mincnlm_nii.sh. Its own call sites are currently commented out,
+# but this provides a working verbose echo+execute wrapper in case they're
+# re-enabled, and its mere presence on PATH satisfies `which my_do_cmd`.
+my_do_cmd() {
+    echo ">>> $*"
+    "$@"
+}

@@ -48,12 +48,12 @@ if [ $# -lt 1 ]
 #------------------------------------------------------------------------------#
 #                             CHECK PATHS
 
-source ./pathFile.sh
+source ${PREEMACS_PATH}/Modules/pathFile.sh
 
 ############Do not modify paths below this unless sure##########################
 
 curr_path=$( pwd )
-PREEMACS_PATH="$(dirname -- $curr_path)"
+#PREEMACS_PATH="$(dirname -- $curr_path)"
 
 templates_path=$PREEMACS_PATH/templates
 scripts_path=$PREEMACS_PATH/scripts
@@ -359,7 +359,7 @@ rm $scripts/info.m
 cd ../
 					var=$(cat $TMP/$size)
 final_crop=${d/_CROP_REO_REG_InverseWarped.nii.gz/}_final_crop.nii.gz
-${MRTRIX_DIR}/mrcrop $var $TMP/$nii_prefinal_crop $TMP/$final_crop
+${MRTRIX_DIR}/mrgrid $TMP/$nii_prefinal_crop crop $var $TMP/$final_crop
 cp $TMP/$final_crop $path_crop/.
 
 done
@@ -456,14 +456,16 @@ if [ $average_FS -eq 1 ]; then
 	if [[ $number_images == 2 ]];
 	 then
 		 cp $N4_T1_path/*.nii.gz  $path_job/T1_preproc.nii.gz
-		 ${MRTRIX_DIR}/mrresize -voxel 0.5 $path_job/T1_preproc.nii.gz $path_job/T1_preproc.nii.gz -force
+		 ${MRTRIX_DIR}/mrgrid $path_job/T1_preproc.nii.gz regrid -voxel 0.5 $path_job/T1_preproc.nii.gz.regrid_tmp.nii.gz -force
+		 mv $path_job/T1_preproc.nii.gz.regrid_tmp.nii.gz $path_job/T1_preproc.nii.gz
 	fi
 
 	if [[ $number_images > 2 ]];
 	  then
 
 	  $scripts_path/AnatomicalAverage -s $templates_path/NMT_05.nii.gz -o $path_job/T1_preproc.nii.gz $N4_T1_path/*.nii.gz
-	  ${MRTRIX_DIR}/mrresize -voxel 0.5 $path_job/T1_preproc.nii.gz $path_job/T1_preproc.nii.gz -force
+	  ${MRTRIX_DIR}/mrgrid $path_job/T1_preproc.nii.gz regrid -voxel 0.5 $path_job/T1_preproc.nii.gz.regrid_tmp.nii.gz -force
+	  mv $path_job/T1_preproc.nii.gz.regrid_tmp.nii.gz $path_job/T1_preproc.nii.gz
     fi
 
 ## Average T2
@@ -475,14 +477,16 @@ if [ $average_FS -eq 1 ]; then
 	if [[ $number_images == 2 ]];
 	 then
 		 cp $N4_T2_path/*.nii.gz  $path_job/T2_preproc.nii.gz
-		 ${MRTRIX_DIR}/mrresize -voxel 0.5 $path_job/T2_preproc.nii.gz $path_job/T2_preproc.nii.gz -force
+		 ${MRTRIX_DIR}/mrgrid $path_job/T2_preproc.nii.gz regrid -voxel 0.5 $path_job/T2_preproc.nii.gz.regrid_tmp.nii.gz -force
+		 mv $path_job/T2_preproc.nii.gz.regrid_tmp.nii.gz $path_job/T2_preproc.nii.gz
 	 fi
 
 
     if [[ $number_images > 2 ]];
 	  then
 	  $scripts_path/AnatomicalAverage -s $templates_path/NMT_05.nii.gz -o $path_job/T2_preproc.nii.gz $N4_T2_path/*.nii.gz
-	  ${MRTRIX_DIR}/mrresize -voxel 0.5 $path_job/T2_preproc.nii.gz $path_job/T2_preproc.nii.gz -force
+	  ${MRTRIX_DIR}/mrgrid $path_job/T2_preproc.nii.gz regrid -voxel 0.5 $path_job/T2_preproc.nii.gz.regrid_tmp.nii.gz -force
+	  mv $path_job/T2_preproc.nii.gz.regrid_tmp.nii.gz $path_job/T2_preproc.nii.gz
 	 fi
 
 fi
@@ -497,14 +501,16 @@ if [ $average_FS -eq 2 ]; then
 if [[ $number_images == 2 ]];
  then
 	 cp $N4_T1_path/*.nii.gz  $path_job/T1_preproc.nii.gz
-	 ${MRTRIX_DIR}/mrresize -voxel 0.5 $path_job/T1_preproc.nii.gz $path_job/T1_preproc.nii.gz -force
+	 ${MRTRIX_DIR}/mrgrid $path_job/T1_preproc.nii.gz regrid -voxel 0.5 $path_job/T1_preproc.nii.gz.regrid_tmp.nii.gz -force
+	 mv $path_job/T1_preproc.nii.gz.regrid_tmp.nii.gz $path_job/T1_preproc.nii.gz
  fi
 
 
 if [[ $number_images > 2 ]];
   then
          ${FREESURFER_HOME}/mri_motion_correct.fsl -o $path_job/T1_preproc.nii.gz -wild *.nii.gz
-	 ${MRTRIX_DIR}/mrresize -voxel 0.5 $path_job/T1_preproc.nii.gz $path_job/T1_preproc.nii.gz -force
+	 ${MRTRIX_DIR}/mrgrid $path_job/T1_preproc.nii.gz regrid -voxel 0.5 $path_job/T1_preproc.nii.gz.regrid_tmp.nii.gz -force
+	 mv $path_job/T1_preproc.nii.gz.regrid_tmp.nii.gz $path_job/T1_preproc.nii.gz
 	 rm $path_job/T1_preproc.nii.gz.mri_motion_correct.fsl.log
 	 rm $path_job/T1_preproc.nii.gz.mri_motion_correct.fsl.log.old
   fi
@@ -517,13 +523,15 @@ if [[ $number_images > 2 ]];
 if [[ $number_images == 2 ]];
  then
 	 cp $N4_T2_path/*.nii.gz  $path_job/T2_preproc.nii.gz
-	 ${MRTRIX_DIR}/mrresize -voxel 0.5 $path_job/T2_preproc.nii.gz $path_job/T2_preproc.nii.gz -force
+	 ${MRTRIX_DIR}/mrgrid $path_job/T2_preproc.nii.gz regrid -voxel 0.5 $path_job/T2_preproc.nii.gz.regrid_tmp.nii.gz -force
+	 mv $path_job/T2_preproc.nii.gz.regrid_tmp.nii.gz $path_job/T2_preproc.nii.gz
  fi
 
 if [[ $number_images > 2 ]];
  then
    ${FREESURFER_HOME}/mri_motion_correct.fsl -o $path_job/T2_preproc.nii.gz -wild *.nii.gz
-	 ${MRTRIX_DIR}/mrresize -voxel 0.5 $path_job/T2_preproc.nii.gz $path_job/T2_preproc.nii.gz -force
+	 ${MRTRIX_DIR}/mrgrid $path_job/T2_preproc.nii.gz regrid -voxel 0.5 $path_job/T2_preproc.nii.gz.regrid_tmp.nii.gz -force
+	 mv $path_job/T2_preproc.nii.gz.regrid_tmp.nii.gz $path_job/T2_preproc.nii.gz
 	 rm $path_job/T2preproc.nii.gz.mri_motion_correct.fsl.log
   fi
 fi

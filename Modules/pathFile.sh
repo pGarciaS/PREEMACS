@@ -10,7 +10,7 @@
  
 
 # User should have installed the following tools:
-# fsl (tested with version 6.0.4.1)
+# fsl (tested with version 6.0.4 -- "6.0.4.1" was never an actual FSL release)
 # freesurfer (tested with version 7.4.1)
 # Matlab (tested with version R2023a)
 # MRtrix (tested with version 3.0.4)
@@ -60,8 +60,8 @@ if [ -z $(which matlab) ]; then
 	isOK=0 
 else 
 	matlab_bin=$(which matlab)
-	export matlab_path=$(dirname $matlab_bin)
-	echo "  MATLAB is found at ${matlab_path}" 
+	export matlab_path=$matlab_bin
+	echo "  MATLAB is found at ${matlab_path}"
 fi
 
 #MRTRIX
@@ -85,14 +85,14 @@ else
 	echo "  ANTs is found at ${ants_path}" 
 fi
 
-# Pytorch
-echo "Checking pytorch ..."
-python -c "import torch"
+# TensorFlow
+echo "Checking TensorFlow ..."
+python3 -c "import tensorflow" 2>/dev/null
 if [ $? -ne 0 ]; then
-	echo "pytorch not installed"; 
-	isOK=0  
+	echo "TensorFlow not installed";
+	isOK=0
 else
-	echo "  Pytorch module exists." 
+	echo "  TensorFlow module exists."
 fi
 
 if [ $isOK -eq 1 ]

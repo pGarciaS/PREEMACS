@@ -46,5 +46,5 @@ templates_path=$PREEMACS_PATH/templates
 	${MRTRIX_DIR}/mrconvert $path_job/brain_mask.nii  $path_job/mask/brain_mask_orig.nii.gz
 	rm $path_job/brain_mask.nii
 	rm $path_job/brain.nii
-	${FSLDIR}/fslmaths $path_job/mask/brain_mask_orig.nii.gz -mul $path_job/T1_conform.nii.gz $path_job/T1_brain.nii.gz
-	${FSLDIR}/fslmaths $path_job/mask/brain_mask_orig.nii.gz -bin $path_job/brain_mask.nii.gz
+	${FSLDIR}/bin/fslmaths $path_job/mask/brain_mask_orig.nii.gz -mul $path_job/T1_conform.nii.gz $path_job/T1_brain.nii.gz
+	${FSLDIR}/bin/fslmaths $path_job/mask/brain_mask_orig.nii.gz -bin $path_job/brain_mask.nii.gz

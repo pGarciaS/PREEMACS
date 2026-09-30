@@ -3,15 +3,15 @@
 help() {
 echo -e "
 Usage: `basename $0` -dataDir -templateDir -n4dir -id
-  dataDir:      Location of Bids data directory
+  dataDir:      PREEMACS output directory (M1's -out_path), containing <id>/T1_conform.nii.gz
   templateDir:  Location of template files
-  n4dir:        Location of N4biasfield corrected T1 and T2 files
-  id:       Ids of target t1w files
+  n4dir:        Output directory generateN4.sh was run with (-outDir), containing <id>/{bias_corrected,bias_image,out_file,out_mask}.nii.gz
+  id:           Subject ID
 
-  Make sure to run BM.sh before using this script.
+  Run M1.sh, BM.sh, then generateN4.sh before using this script -- MRIQC
+  evaluates M1's conformed T1 (PREEMACS' own processed space), not the raw
+  scan, so its inputs must already exist from those earlier steps.
   Please ensure that Ants is accesible and ready to use. For more information on installation, refer to https://antsx.github.io/ANTsRCore/index.html .
-  The script expects one nifti file in the anat directory of each subject to run succesfully.
-  For more information on BIDs data format, please refer to https://bids.neuroimaging.io/ .
 
 Arun Garimella
 INB May,2020
@@ -50,7 +50,7 @@ if [ $# -lt 4 ]
     subId=$2
     shift;shift
    ;;
-    -n4Dir)
+    -n4dir)
     n4Dir=$2
     shift;shift
    ;;
@@ -61,6 +61,12 @@ if [ $# -lt 4 ]
     esac
  done
 
-python3 ../scripts/mriqc/runMRIQC.py "${bidsdir}" "${templateDir}" "${n4Dir}" "${subId}"
+/opt/venvs/mriqc/bin/python3 ../scripts/mriqc/runMRIQC.py "${bidsdir}" "${templateDir}" "${n4Dir}" "${subId}"
+status=$?
+
+if [ $status -ne 0 ]; then
+  echo -e "\e[0;36m\n[ERROR]... runMRIQC.py failed (exit $status) \n\e[0m"
+  exit $status
+fi
 
 echo "Script has finished executing succesfully"
